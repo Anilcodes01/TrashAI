@@ -11,7 +11,7 @@ export default function Appbar() {
   return (
     <div className=" text-white z-50 top-0 fixed border-b   w-full justify-between h-16 flex items-center">
       <button
-        onClick={() => router.push("/")}
+        onClick={() => router.push("/home")}
         className="lg:text-3xl text-2xl ml-4 font-bold lg:ml-8"
       >
         TrashAI
