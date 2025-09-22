@@ -1,0 +1,76 @@
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String?
+  username String @unique
+  passwordHash String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  todoLists TodoList[]
+}
+
+model TodoList {
+  id          String   @id @default(cuid())
+  title       String 
+  description String 
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  
+    @@index([userId]) 
+  tasks Task[]
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  content   String 
+  completed Boolean  @default(false)
+  order     Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  todoList   TodoList @relation(fields: [todoListId], references: [id], onDelete: Cascade)
+  todoListId String  
+  
+   @@index([todoListId]) 
+  subTasks SubTask[]
+}
+
+
+model SubTask {
+  id        String   @id @default(cuid())
+  content   String 
+  completed Boolean  @default(false)
+  order     Int 
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String 
+  
+    @@index([taskId]) 
+}
+
+model Tasks {
+  id String @id @default(uuid())
+  title String
+  description String
+
+}
