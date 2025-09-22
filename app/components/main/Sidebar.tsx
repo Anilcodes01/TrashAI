@@ -4,6 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { MessageSquarePlus, ChevronLeft, LoaderCircle, ServerCrash, Archive } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -14,7 +15,7 @@ interface TodoList {
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(true);
-
+const router = useRouter();
   const { data: todoLists, error, isLoading } = useSWR<TodoList[]>('/api/tasks/getTasks', fetcher);
 
   const toggleSidebar = () => setIsOpen(!isOpen);
@@ -32,7 +33,9 @@ export default function Sidebar() {
         <ChevronLeft className={`transition-transform duration-300 ${!isOpen && "rotate-180"}`} size={16} />
       </button>
 
-      <button className="flex items-center w-full p-2 mb-6 bg-gray-600 rounded-lg hover:bg-blue-500">
+      <button onClick={() => {
+        router.push('/home')
+      }} className="flex items-center cursor-pointer w-full p-2 mb-6 bg-gray-600 rounded-lg hover:bg-gray-800">
         <MessageSquarePlus size={24} />
         <span className={`ml-4 font-semibold transition-opacity duration-300 ${!isOpen && "opacity-0 whitespace-nowrap"}`}>
           New List

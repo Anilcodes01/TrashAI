@@ -47,7 +47,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="container mx-auto dark:bg-gray-900 p-8 flex flex-col items-center gap-12">
+    <div className="container mx-auto bg-black p-8 flex flex-col items-center gap-12">
       <MainTextArea onGenerate={handleGenerateList} isLoading={isLoading} />
       {error && <p className="text-red-500 mt-4">{error}</p>}
     </div>

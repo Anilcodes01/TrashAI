@@ -28,16 +28,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-900 text-white`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
       >
         <Providers>
           <Appbar />
-          {/* 
-            This <main> tag is the fix.
-            - pt-16: Pushes content down by the height of your h-16 Appbar.
-            - h-screen: Ensures the main area is set up to fill the viewport height.
-            - flex flex-col: Allows children to properly fill the space.
-          */}
+    
           <main className="pt-16 h-screen flex flex-col">
             {children}
           </main>

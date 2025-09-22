@@ -83,13 +83,13 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
       </div>
       <div className="w-full space-y-4">
         {list.tasks.map((task) => (
-          <div key={task.id} className="p-4 border rounded-lg bg-[#0e1117] shadow-sm">
+          <div key={task.id} className="p-4  rounded-lg  shadow-sm">
             <div 
               className="flex items-center gap-3 cursor-pointer"
               onClick={() => handleToggle(task.id, false)}
             >
               {task.completed ? <Check className="text-green-500"/> : <Square className="text-gray-400"/>}
-              <span className={`text-base ${task.completed ? 'line-through text-gray-500' : ''}`}>
+              <span className={`text-base font-bold ${task.completed ? 'line-through text-gray-500' : ''}`}>
                 {task.content}
               </span>
             </div>
