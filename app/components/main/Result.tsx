@@ -1,12 +1,10 @@
-// components/TodoResult.tsx
-import { TodoList, Task, SubTask } from '@/app/types'; // Adjust path
 
-// Define the props
+import { TodoList, } from '@/app/types';
+
 interface TodoResultProps {
   todoList: TodoList;
 }
 
-// A simple checkbox component for reuse
 const Checkbox = ({ id, content, completed }: { id: string, content: string, completed: boolean }) => (
   <div className="flex items-center gap-3">
     <input 
@@ -34,7 +32,6 @@ export default function TodoResult({ todoList }: TodoResultProps) {
           <div key={task.id} className="p-4 border rounded-lg b shadow-sm">
             <Checkbox id={task.id} content={task.content} completed={task.completed} />
             
-            {/* Render subtasks if they exist */}
             {task.subTasks && task.subTasks.length > 0 && (
               <div className="mt-3 pl-8 space-y-2">
                 {task.subTasks.map((subTask) => (

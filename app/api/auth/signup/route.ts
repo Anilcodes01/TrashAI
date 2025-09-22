@@ -9,10 +9,6 @@ export async function POST(req: Request) {
       name,
       username,
       password,
-      avatarUrl,
-      bio,
-      website,
-      city,
     }: {
       email: string;
       username: string;

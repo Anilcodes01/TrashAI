@@ -1,57 +1,12 @@
 "use client";
-import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { MdOutlineNotifications } from "react-icons/md";
-import { FaUserCircle } from "react-icons/fa";
-import { signOut } from "next-auth/react";
-import { Search } from "lucide-react";
-import axios from "axios";
 
-type User = {
-  id: string;
-  name: string;
-  avatarUrl?: string;
-};
 
 export default function Appbar() {
   const { data: session } = useSession();
-  const userId = session?.user.id;
   const router = useRouter();
-
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<User[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-
-  const handleDropdownToggle = () => {
-    setDropdownOpen(!dropdownOpen);
-  };
-
-  console.log(isSearching);
-  const handleDropdownClose = () => {
-    setDropdownOpen(false);
-  };
-
-  const handleSearchChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-
-    if (query.length > 2) {
-      setIsSearching(true);
-      try {
-        const response = await axios.get(`/api/users/search?query=${query}`);
-        setSearchResults(response.data);
-      } catch (error) {
-        console.error("Search error:", error);
-      } finally {
-        setIsSearching(false);
-      }
-    } else {
-      setSearchResults([]);
-    }
-  };
 
   return (
     <div className=" text-white z-50 top-0 fixed   w-full justify-between h-16 flex items-center">
@@ -62,20 +17,12 @@ export default function Appbar() {
         TrashAI
       </button>
 
-     
-
-    
-
       <div className="mr-4  lg:mr-8 justify-between flex">
-
         <div>
           <div className="relative flex items-center lg:ml-4 ml-4">
             {session?.user ? (
               <>
-                <div
-                  onClick={handleDropdownToggle}
-                  className="flex h-8 w-8 overflow-hidden items-center"
-                >
+                <div className="flex h-8 w-8 overflow-hidden items-center">
                   {session?.user.avatarUrl ? (
                     <Image
                       src={session.user.avatarUrl}
@@ -90,62 +37,6 @@ export default function Appbar() {
                     </div>
                   )}
                 </div>
-                {dropdownOpen && (
-                  <div
-                    className="absolute right-0 mt-80 w-48 bg-white border rounded-lg shadow-lg"
-                    onMouseLeave={handleDropdownClose}
-                  >
-                    <div className="p-4 flex flex-col cursor-pointer items-center">
-                      {session.user.avatarUrl ? (
-                        <Image
-                          src={session.user.avatarUrl}
-                          alt="User Profile Picture"
-                          width={192}
-                          height={192}
-                          className="rounded-full h-12 w-12 overflow-hidden object-cover cursor-pointer border"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center cursor-pointer h-12 w-12 rounded-full border bg-green-600 text-white">
-                      {session.user.name?.charAt(0).toUpperCase()}
-                    </div>
-                      )}
-                      <div className="mt-2 text-center">
-                        <p className="font-semibold">{session.user.name}</p>
-                        <p className="text-sm text-gray-600">
-                          {session.user.email}
-                        </p>
-                      </div>
-                      <div className="flex flex-col w-full mt-4">
-                        <button
-                          onClick={() => {
-                            router.push(`/user/${userId}`);
-                          }}
-                          className="border hover:bg-gray-100 rounded-lg text-black w-full"
-                        >
-                          Profile
-                        </button>
-                        <button
-                          onClick={() => {
-                            router.push(`/bookmarks`);
-                          }}
-                          className="border mt-2 mb-2 hover:bg-gray-100 rounded-lg text-black w-full"
-                        >
-                          Bookmarks
-                        </button>
-                        <hr />
-                        <button
-                          onClick={() => {
-                            signOut({ callbackUrl: "/" });
-                            handleDropdownClose();
-                          }}
-                          className="px-4 mt-2 border hover:bg-gray-100 text-black rounded-lg"
-                        >
-                          Sign out
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </>
             ) : (
               <div
