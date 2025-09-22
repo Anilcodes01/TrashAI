@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import MainTextArea from '../components/main/TextArea';
+import MainTextArea from '@/app/components/main/TextArea'
 import { TodoList } from '@/app/types';
 
 export default function HomePage() {
