@@ -64,9 +64,7 @@ export async function POST(req: NextRequest) {
     
     const model = "gemini-2.5-flash"; 
     const contents = [{ role: "user", parts: [{ text: prompt }] }];
-    const generationConfig = {
-      response_mime_type: "application/json",
-    };
+   
 
     const stream = await ai.models.generateContentStream({
       model,

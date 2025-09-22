@@ -6,18 +6,25 @@ import Link from 'next/link';
 import { TodoList } from '@/app/types';
 import { Check, Square, LoaderCircle, ServerCrash, ArrowLeft } from 'lucide-react';
 
-const fetcher = async (url: string) => {
+class FetchError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'FetchError';
+    this.status = status;
+  }
+}
+
+const fetcher = async (url: string): Promise<TodoList> => {
   const res = await fetch(url);
   if (!res.ok) {
-    const error: any = new Error('An error occurred while fetching the data.');
-    error.status = res.status;
-    throw error;
+    throw new FetchError('An error occurred while fetching the data.', res.status);
   }
   return res.json();
 };
 
 export default function TodoListDisplay({ taskId }: { taskId: string }) {
-  const { data: initialTodoList, error, isLoading } = useSWR<TodoList>(`/api/tasks/${taskId}`, fetcher);
+  const { data: initialTodoList, error, isLoading } = useSWR<TodoList, FetchError>(`/api/tasks/${taskId}`, fetcher);
 
   const [list, setList] = useState<TodoList | null>(null);
 

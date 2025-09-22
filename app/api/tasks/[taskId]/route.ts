@@ -16,7 +16,6 @@ export async function GET(req: NextRequest, props: { params: Promise<{ taskId: s
     const userId = session.user.id;
     const { taskId } = params; 
     
-
     const todoList = await prisma.todoList.findUnique({
       where: {
         id: taskId,
@@ -36,9 +35,10 @@ export async function GET(req: NextRequest, props: { params: Promise<{ taskId: s
     
     return NextResponse.json(todoList, { status: 200 });
 
-  } catch (error: any) {
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
-      { message: "An internal server error occurred", error: error.message },
+      { message: "An internal server error occurred", error: errorMessage },
       { status: 500 }
     );
   }

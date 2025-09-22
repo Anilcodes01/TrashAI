@@ -1,10 +1,10 @@
 import { authOptions } from "@/app/lib/authoptions";
 import { prisma } from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 
-export async function GET(req: NextRequest, res :NextResponse) {
+export async function GET() {
 
     try {
         const session = await getServerSession(authOptions);
@@ -24,10 +24,11 @@ export async function GET(req: NextRequest, res :NextResponse) {
         });
 
         return NextResponse.json(todoLists, { status: 200 });
-    } catch (error: any) {
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
         return NextResponse.json({
             message: 'An error occured while fetching the tasks, please try again',
-            error: error.message
+            error: errorMessage 
         }, {
             status: 500
         })
