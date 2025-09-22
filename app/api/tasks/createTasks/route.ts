@@ -8,7 +8,8 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY!,
 });
 
-interface AIGeneratedTodo {
+interface AIGeneratedResponse {
+  title: string;
   tasks: {
     content: string;
     subTasks?: {
@@ -40,51 +41,53 @@ export async function POST(req: NextRequest) {
     const userId = session.user.id;
 
     const body = await req.json();
-    const { title, description } = body;
-    if (!title || !description) {
+    const { description } = body;
+    if (!description) {
       return NextResponse.json(
-        { message: "Title and description are required." },
+        { message: "A description is required." },
         { status: 400 }
       );
     }
 
     const prompt = `
-      You are an expert project manager AI. Your task is to break down a user's request into a clear, actionable todo list with tasks and subtasks.
-      User's Request Title: "${title}"
-      User's Request Description: "${description}"
-      Based on the title and description, generate a list of tasks and relevant subtasks.
+      You are an expert project manager AI. Based on the following user request, do two things:
+      1. Generate a short, descriptive title for the to-do list (5-7 words maximum).
+      2. Break down the request into a clear, actionable list of tasks and subtasks.
+
+      User's Request: "${description}"
+
       RULES:
-      - Respond ONLY with a valid JSON object. Do not include any text, pleasantries, or markdown formatting before or after the JSON.
-      - The JSON object must follow this exact structure: { "tasks": [{ "content": "Task title", "subTasks": [{ "content": "Subtask title" }] }] }
+      - Respond ONLY with a valid JSON object. Do not include any text or markdown formatting before or after the JSON.
+      - The JSON object must follow this exact structure: { "title": "A short descriptive title", "tasks": [{ "content": "Task title", "subTasks": [{ "content": "Subtask title" }] }] }
       - If a task doesn't need subtasks, provide an empty array for "subTasks" or omit the key.
-      - Keep the content concise and actionable.
     `;
     
     const model = "gemini-2.5-flash"; 
     const contents = [{ role: "user", parts: [{ text: prompt }] }];
-   
+    const generationConfig = {
+      response_mime_type: "application/json",
+    };
 
     const stream = await ai.models.generateContentStream({
       model,
       contents,
+      
     });
 
     let fullResponseText = "";
     for await (const chunk of stream) {
-      const chunkText = chunk.text;
+      const chunkText =chunk.text;
       if (chunkText) {
         fullResponseText += chunkText;
       }
     }
 
-    // --- FIX 2: CLEAN THE RESPONSE BEFORE PARSING ---
     const cleanResponse = cleanJsonString(fullResponseText);
-    const generatedData: AIGeneratedTodo = JSON.parse(cleanResponse);
+    const generatedData: AIGeneratedResponse = JSON.parse(cleanResponse);
 
-    // The rest of your code remains the same...
     const newTodoList = await prisma.todoList.create({
       data: {
-        title,
+        title: generatedData.title,
         description,
         userId,
         tasks: {

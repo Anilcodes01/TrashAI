@@ -21,7 +21,7 @@ export default function Sidebar() {
 
   return (
     <div
-      className={`relative flex flex-col mt-16  text-white h-screen p-4 transition-all duration-300 ease-in-out ${
+      className={`relative flex flex-col h-full  text-white  p-4 transition-all duration-300 ease-in-out ${
         isOpen ? "w-64" : "w-20"
       }`}
     >
@@ -79,14 +79,7 @@ export default function Sidebar() {
       ))}
       </div>
 
-      <div className="border-t border-gray-700 pt-4">
-        <div className="flex items-center p-2 rounded-md hover:bg-gray-700">
-            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center font-bold">A</div>
-            <span className={`ml-4 transition-opacity duration-300 ${!isOpen && "opacity-0 whitespace-nowrap"}`}>
-              Anil Pal
-            </span>
-        </div>
-      </div>
+    
     </div>
   );
 }

@@ -73,7 +73,6 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
     <div className="flex flex-col gap-8 items-start w-full lg:max-w-4xl mx-auto">
       <div className="w-full">
         <h1 className="text-4xl font-bold mb-2">{list.title}</h1>
-        <p className="text-gray-600 italic">Original prompt: "{list.description}"</p>
       </div>
       <div className="w-full space-y-4">
         {list.tasks.map((task) => (

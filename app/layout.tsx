@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Appbar from "./components/Appbar";
+import Appbar from "./components/Appbar"; // Your Appbar component
 import Providers from "./providers";
+import { ReactNode } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,16 +23,24 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-900 text-white`}
       >
         <Providers>
           <Appbar />
-        {children}
+          {/* 
+            This <main> tag is the fix.
+            - pt-16: Pushes content down by the height of your h-16 Appbar.
+            - h-screen: Ensures the main area is set up to fill the viewport height.
+            - flex flex-col: Allows children to properly fill the space.
+          */}
+          <main className="pt-16 h-screen flex flex-col">
+            {children}
+          </main>
         </Providers>
       </body>
     </html>

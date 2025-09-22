@@ -9,7 +9,7 @@ export default function Appbar() {
   const router = useRouter();
 
   return (
-    <div className=" text-white z-50 top-0 fixed   w-full justify-between h-16 flex items-center">
+    <div className=" text-white z-50 top-0 fixed border-b   w-full justify-between h-16 flex items-center">
       <button
         onClick={() => router.push("/")}
         className="lg:text-3xl text-2xl ml-4 font-bold lg:ml-8"

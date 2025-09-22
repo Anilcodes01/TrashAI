@@ -4,9 +4,9 @@ import MainContent from './components/main/MainContent';
 
 export default function DashboardPage() {
   return (
-    <div className="flex h-screen bg-[#0e1117]">
+    <div className="flex h-full dark:bg-gray-900">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 dark:bg-gray-900 mt-16 overflow-y-auto">
         <MainContent />
       </main>
     </div>
