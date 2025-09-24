@@ -3,10 +3,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authoptions";
 import { prisma } from "@/app/lib/prisma";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { taskId: string } } 
-) {
+// Define a type for the context parameter, which includes params
+type RouteContext = {
+  params: {
+    taskId: string;
+  };
+};
+
+export async function GET(req: NextRequest, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -15,7 +19,8 @@ export async function GET(
     }
 
     const userId = session.user.id;
-    const { taskId } = params; 
+    // Get taskId from the context object's params property
+    const { taskId } = context.params;
 
     const todoList = await prisma.todoList.findFirst({
       where: {
@@ -53,6 +58,7 @@ export async function GET(
 
     return NextResponse.json(todoList, { status: 200 });
   } catch (error) {
+    console.error("Error fetching task:", error); // It's a good practice to log the actual error on the server
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
