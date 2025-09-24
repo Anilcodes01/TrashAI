@@ -5,7 +5,7 @@ import { prisma } from "@/app/lib/prisma";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { taskId: string } }
+  { params }: { params: { taskId: string } } 
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -15,7 +15,7 @@ export async function GET(
     }
 
     const userId = session.user.id;
-    const { taskId } = await params;
+    const { taskId } = params; 
 
     const todoList = await prisma.todoList.findFirst({
       where: {
