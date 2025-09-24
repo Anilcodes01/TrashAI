@@ -9,7 +9,7 @@ export default function Appbar() {
   const router = useRouter();
 
   return (
-    <div className=" text-white z-50 top-0 fixed border-b   w-full justify-between h-16 flex items-center">
+    <div className=" text-white z-50 top-0 fixed  bg-zinc-900  w-full justify-between h-16 flex items-center">
       <button
         onClick={() => router.push("/home")}
         className="lg:text-3xl text-2xl ml-4 font-bold lg:ml-8"
@@ -32,7 +32,7 @@ export default function Appbar() {
                       className="rounded-full h-8 w-8 overflow-hidden object-cover cursor-pointer"
                     />
                   ) : (
-                    <div className="flex items-center justify-center cursor-pointer h-7 w-7 rounded-full border bg-green-600 text-white">
+                    <div className="flex items-center justify-center cursor-pointer h-7 w-7 rounded-full border  text-white">
                       {session.user.name?.charAt(0).toUpperCase()}
                     </div>
                   )}

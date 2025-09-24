@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
-    const userId = session.user.id;
+    const ownerId = session.user.id;
 
     const body = await req.json();
     const { description } = body;
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
       data: {
         title: generatedData.title,
         description,
-        userId,
+        ownerId,
         tasks: {
           create: generatedData.tasks.map((task, taskIndex) => ({
             content: task.content,

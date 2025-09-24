@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Appbar from "./components/Appbar"; // Your Appbar component
+import Appbar from "./components/ui/Appbar"; // Your Appbar component
 import Providers from "./providers";
 import { ReactNode } from "react";
 
@@ -28,12 +28,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-900 text-white`}
       >
         <Providers>
-          <Appbar />
+          {/* <Appbar /> */}
     
-          <main className="pt-16 h-screen flex flex-col">
+          <main className="pt- h-screen flex flex-col">
             {children}
           </main>
         </Providers>

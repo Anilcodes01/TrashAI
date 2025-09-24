@@ -14,9 +14,21 @@ export interface Task {
   subTasks: SubTask[];
 }
 
+export interface User {
+  id: string;
+  name: string | null;
+  username: string;
+}
+
+export interface Collaborator {
+  user: User;
+}
+
 export interface TodoList {
   id: string;
   title: string;
-  description: string;
+  ownerId: string;
+  owner: User;
+  collaborators: Collaborator[];
   tasks: Task[];
 }

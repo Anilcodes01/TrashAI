@@ -3,8 +3,11 @@
 import { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { TodoList } from '@/app/types';
 import { Check, Square, LoaderCircle, ServerCrash, ArrowLeft } from 'lucide-react';
+import { SharePopover } from '../main/ShareProvider';
+import { Avatar } from '../ui/avatar';
 
 class FetchError extends Error {
   status: number;
@@ -24,8 +27,9 @@ const fetcher = async (url: string): Promise<TodoList> => {
 };
 
 export default function TodoListDisplay({ taskId }: { taskId: string }) {
+  const { data: session } = useSession();
   const { data: initialTodoList, error, isLoading } = useSWR<TodoList, FetchError>(`/api/tasks/${taskId}`, fetcher);
-
+  const [isSharePopoverOpen, setIsSharePopoverOpen] = useState(false);
   const [list, setList] = useState<TodoList | null>(null);
 
   useEffect(() => {
@@ -36,7 +40,7 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
+      <div className="flex justify-center items-center h-screen">
         <LoaderCircle className="animate-spin text-gray-500" size={48} />
       </div>
     );
@@ -44,10 +48,10 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-red-500">
+      <div className="flex flex-col items-center justify-center h-screen text-red-500">
         <ServerCrash size={48} />
         <h2 className="text-2xl font-bold mt-4">Failed to Load List</h2>
-        <p>{error.status === 404 ? "This to-do list could not be found." : "Please try again later."}</p>
+        <p>{error.status === 404 ? "This to-do list could not be found or you don't have access." : "Please try again later."}</p>
         <Link href="/" className="mt-6 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
           <ArrowLeft className="mr-2 h-5 w-5" />
           Go Back Home
@@ -57,6 +61,9 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
   }
 
   if (!list) return null;
+
+  const isOwner = session?.user?.id === list.ownerId;
+  const participants = [list.owner, ...list.collaborators.map(c => c.user)];
 
   const handleToggle = (itemId: string, isSubTask: boolean) => {
     setList(currentList => {
@@ -77,13 +84,47 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
   };
 
   return (
-    <div className="flex flex-col gap-8 items-start w-full lg:max-w-4xl mx-auto">
-      <div className="w-full">
-        <h1 className="text-4xl font-bold mb-2">{list.title}</h1>
+    <div className="flex flex-col gap-8 items-start w-full">
+      <div className="w-full flex justify-between items-center">
+        <h1 className="text-sm">{list.title}</h1>
+         <div className='relative flex gap-4 items-center lg:mr-8'>
+          <p className='text-zinc-600 text-sm'>Edited just now</p>
+          
+          {/* --- THIS IS THE ONLY CHANGE --- */}
+          {participants.length > 1 && (
+            <div className="flex items-center">
+              {participants.map((participant, index) => (
+                <div key={participant.id} className={index > 0 ? "-ml-2" : ""}>
+                   <Avatar name={participant.name || participant.username} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {isOwner && (
+            <>
+              <button 
+                onClick={() => setIsSharePopoverOpen(prev => !prev)}
+                className='text-sm cursor-pointer hover:text-zinc-600'
+              >
+                Share
+              </button>
+              {isSharePopoverOpen && (
+                <SharePopover 
+                  listId={list.id} 
+                  onClose={() => setIsSharePopoverOpen(false)} 
+                />
+              )}
+            </>
+          )}
+        </div>
       </div>
-      <div className="w-full space-y-4">
+      <div className="w-full flex flex-col items-center p-8 h-full justify-center space-y-4">
+         <div className='w-full max-w-4xl'>
+          <h1 className="text-3xl w-full mb-6">{list.title}</h1>
+         </div>
         {list.tasks.map((task) => (
-          <div key={task.id} className="p-4  rounded-lg  shadow-sm">
+          <div key={task.id} className="p-4 max-w-4xl w-full rounded-lg">
             <div 
               className="flex items-center gap-3 cursor-pointer"
               onClick={() => handleToggle(task.id, false)}

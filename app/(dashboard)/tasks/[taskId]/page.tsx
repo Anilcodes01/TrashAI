@@ -7,7 +7,7 @@ export default function ListPage({ params }: { params: Promise<{ taskId: string 
   const resolvedParams = use(params);
 
   return (
-    <div className="container  bg-black mx-auto p-8">
+    <div className="container  bg-zinc-900 mx-auto p-4">
       <TodoListDisplay taskId={resolvedParams.taskId} />
     </div>
   );
