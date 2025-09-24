@@ -3,14 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/lib/authoptions";
 import { prisma } from "@/app/lib/prisma";
 
-// Define a type for the context parameter, which includes params
-type RouteContext = {
-  params: {
-    taskId: string;
-  };
-};
-
-export async function GET(req: NextRequest, context: RouteContext) {
+export async function GET(
+  req: NextRequest,
+  // The key change is here: { params } is now a Promise
+  { params }: { params: Promise<{ taskId: string }> }
+) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -19,8 +16,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
     }
 
     const userId = session.user.id;
-    // Get taskId from the context object's params property
-    const { taskId } = context.params;
+    // You must now 'await' the params to get the taskId
+    const { taskId } = await params; 
 
     const todoList = await prisma.todoList.findFirst({
       where: {
@@ -58,7 +55,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     return NextResponse.json(todoList, { status: 200 });
   } catch (error) {
-    console.error("Error fetching task:", error); // It's a good practice to log the actual error on the server
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";
     return NextResponse.json(
