@@ -3,7 +3,7 @@ import Sidebar from './components/main/Sidebar';
 import MainContent from './components/main/MainContent';
 import { getPendingInvitationCount } from './actions/InvitationActions';
 
-export async function DashboardPage() {
+export default async function DashboardPage() {
 
     const invitationCount = await getPendingInvitationCount();
   return (
