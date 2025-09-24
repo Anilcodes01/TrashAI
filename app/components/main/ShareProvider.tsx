@@ -38,7 +38,6 @@ export function SharePopover({ listId, onClose }: { listId: string, onClose: () 
     }
   };
   
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedFetch = useCallback(debounce(fetchSuggestions, 300), [listId]);
 
   useEffect(() => {
@@ -50,11 +49,11 @@ export function SharePopover({ listId, onClose }: { listId: string, onClose: () 
     setError(null);
     try {
       const result = await inviteUserToList(listId, userId);
-      alert(result.message); // Replace with a toast notification
+      alert(result.message); 
       setSearchQuery('');
       setSuggestions([]);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(typeof err === 'object' && err !== null && 'message' in err ? String((err as { message?: unknown }).message) : 'An error occurred.');
     } finally {
       setIsInviting(false);
     }

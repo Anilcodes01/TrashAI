@@ -1,11 +1,10 @@
-// /app/inbox/InvitationCard.tsx
+
 'use client';
 
 import { useTransition } from 'react';
 import { acceptInvitation, declineInvitation } from '@/app/actions/InvitationActions';
 import { LoaderCircle } from 'lucide-react';
 
-// Define a type for the invitation prop for better TypeScript support
 type Invitation = {
   id: string;
   todoList: {

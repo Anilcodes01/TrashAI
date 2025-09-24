@@ -61,7 +61,7 @@ export default function Sidebar({ initialInvitationCount }: { initialInvitationC
       <div className="flex justify-between">
         <div>
           <Link className="text-lg font-bold" href="/">
-            {user}'s Trash
+            {user}&apos;s Trash
           </Link>
         </div>
 
