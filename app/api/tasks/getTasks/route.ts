@@ -10,7 +10,7 @@ export async function GET() {
         if(!session?.user?.id) {
             return NextResponse.json({
                 message: 'Unauthorized',
-            }, {status: 401})
+            }, {status: 401});
         }
 
         const userId = session.user.id;
@@ -29,11 +29,18 @@ export async function GET() {
                     }
                 ]
             },
+            select: {
+                id: true,
+                title: true,
+                ownerId: true, // We need ownerId to calculate the role
+            },
             orderBy: { updatedAt: 'desc' }
         });
         
+        // CHANGE 2: Map over the selected data to create the final, clean object for the client.
         const listsWithRoles = todoLists.map(list => ({
-            ...list,
+            id: list.id,
+            title: list.title,
             role: list.ownerId === userId ? 'owner' : 'collaborator'
         }));
 
@@ -46,6 +53,6 @@ export async function GET() {
             error: errorMessage 
         }, {
             status: 500
-        })
+        });
     }
 }

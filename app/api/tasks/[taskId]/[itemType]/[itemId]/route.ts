@@ -16,15 +16,16 @@ type Params = {
   itemId: string;
 };
 
+
 export async function PATCH(
   request: NextRequest,
   {
-    params, 
+    params,
   }: {
     params: Promise<RawParams>;
   }
 ) {
-  const { taskId, itemType, itemId } = await params; 
+  const { taskId, itemType, itemId } =await params;
 
   if (itemType !== "task" && itemType !== "subtask") {
     return NextResponse.json({ error: "Invalid itemType" }, { status: 400 });
@@ -36,9 +37,14 @@ export async function PATCH(
   }
 
   const userId = session.user.id;
-  const { completed } = await request.json();
-  if (typeof completed !== "boolean") {
-    return NextResponse.json({ error: "Invalid completed value" }, { status: 400 });
+  const body = await request.json();
+  const { completed, content } = body;
+
+  if (typeof completed !== "boolean" && typeof content !== "string") {
+    return NextResponse.json(
+      { error: "Invalid input: 'completed' must be a boolean or 'content' must be a string." },
+      { status: 400 }
+    );
   }
 
   const socketId = request.headers.get("x-socket-id");
@@ -51,34 +57,64 @@ export async function PATCH(
       },
     });
     if (!list) {
-      return NextResponse.json({ error: "List not found or no permission" }, { status: 403 });
+      return NextResponse.json(
+        { error: "List not found or no permission" },
+        { status: 403 }
+      );
+    }
+
+    const dataToUpdate: { completed?: boolean; content?: string } = {};
+    if (typeof completed === "boolean") {
+      dataToUpdate.completed = completed;
+    }
+    if (typeof content === "string") {
+      if (content.trim().length === 0) {
+        return NextResponse.json({ error: "Content cannot be empty" }, { status: 400 });
+      }
+      dataToUpdate.content = content.trim();
     }
 
     let updatedItem;
     if (itemType === "task") {
       updatedItem = await prisma.task.update({
         where: { id: itemId, todoListId: taskId },
-        data: { completed },
+        data: dataToUpdate,
       });
     } else {
       updatedItem = await prisma.subTask.update({
         where: { id: itemId, task: { todoListId: taskId } },
-        data: { completed },
+        data: dataToUpdate,
       });
     }
 
+    const channelName = `private-list-${taskId}`;
+    const pusherOptions = { socket_id: socketId || undefined };
+
     if (updatedItem) {
-      await pusher.trigger(
-        `private-list-${taskId}`,
-        "item-updated",
-        { itemId, itemType, completed },
-        { socket_id: socketId || undefined }
-      );
+      if (dataToUpdate.completed !== undefined) {
+        await pusher.trigger(
+          channelName,
+          "item-updated",
+          { itemId, itemType, completed: dataToUpdate.completed },
+          pusherOptions
+        );
+      }
+      if (dataToUpdate.content !== undefined) {
+        await pusher.trigger(
+          channelName,
+          "item-content-updated",
+          { itemId, itemType, content: dataToUpdate.content },
+          pusherOptions
+        );
+      }
     }
 
     return NextResponse.json(updatedItem);
   } catch (error) {
     console.error("Failed to update:", error);
-    return NextResponse.json({ error: "Failed to update item" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update item" },
+      { status: 500 }
+    );
   }
 }
