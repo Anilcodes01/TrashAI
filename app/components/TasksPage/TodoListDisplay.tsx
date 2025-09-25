@@ -5,6 +5,7 @@ import useSWR, { useSWRConfig } from "swr";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { TodoList, Task, SubTask } from "@/app/types";
+import PusherClient from "pusher-js";
 import {
   Check,
   Square,
@@ -35,6 +36,17 @@ const fetcher = async (url: string): Promise<TodoList> => {
   return res.json();
 };
 
+let pusherClient: PusherClient | null = null;
+const getPusherClient = () => {
+  if (!pusherClient) {
+    pusherClient = new PusherClient(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+      authEndpoint: "/api/pusher/auth",
+    });
+  }
+  return pusherClient;
+};
+
 export default function TodoListDisplay({ taskId }: { taskId: string }) {
   const { data: session } = useSession();
   const {
@@ -51,6 +63,57 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
       setList(initialTodoList);
     }
   }, [initialTodoList]);
+
+  useEffect(() => {
+    if (!taskId) return;
+
+    const pusher = getPusherClient();
+    const channelName = `private-list-${taskId}`;
+
+    try {
+      const channel = pusher.subscribe(channelName);
+
+      channel.bind(
+        "item-updated",
+        (data: {
+          itemId: string;
+          itemType: "task" | "subtask";
+          completed: boolean;
+        }) => {
+          mutate(
+            `/api/tasks/${taskId}`,
+            (currentData: TodoList | undefined) => {
+              if (!currentData) return currentData;
+
+              const updatedTasks = currentData.tasks.map((task) => {
+                if (data.itemType === "task" && task.id === data.itemId) {
+                  return { ...task, completed: data.completed };
+                }
+                if (data.itemType === "subtask") {
+                  const updatedSubTasks = task.subTasks.map((sub) =>
+                    sub.id === data.itemId
+                      ? { ...sub, completed: data.completed }
+                      : sub
+                  );
+                  return { ...task, subTasks: updatedSubTasks };
+                }
+                return task;
+              });
+
+              return { ...currentData, tasks: updatedTasks };
+            },
+            { revalidate: false }
+          );
+        }
+      );
+
+      return () => {
+        pusher.unsubscribe(channelName);
+      };
+    } catch (e) {
+      console.error("Failed to subscribe to Pusher:", e);
+    }
+  }, [taskId, mutate]);
 
   const handleToggle = async (itemId: string, isSubTask: boolean) => {
     if (!list) return;
@@ -86,10 +149,14 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
     setList(updatedList);
 
     try {
+      const pusher = getPusherClient();
+      const socketId = pusher.connection.socket_id;
+
       const res = await fetch(`/api/tasks/${list.id}/${itemType}/${itemId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
+          "x-socket-id": socketId,
         },
         body: JSON.stringify({ completed: newCompletedState }),
       });
