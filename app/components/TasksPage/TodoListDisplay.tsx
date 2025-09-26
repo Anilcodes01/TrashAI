@@ -7,10 +7,12 @@ import { useSession } from "next-auth/react";
 import { TodoList, Task, SubTask } from "@/app/types";
 import PusherClient from "pusher-js";
 import ProgressBar from "../ui/ProgressBar";
-import { LoaderCircle, ServerCrash, ArrowLeft } from "lucide-react";
+import { LoaderCircle, ServerCrash, ArrowLeft, Sparkles } from "lucide-react";
 import { TodoListHeader } from "./TodoListHeader";
 import { TaskList } from "./TaskList";
 import { CommentPopover } from "./CommentPopover";
+import { AICommandModal } from "./AI/AiCommandModal";
+import Image from "next/image";
 
 class FetchError extends Error {
   status: number;
@@ -45,6 +47,7 @@ const getPusherClient = () => {
 
 export default function TodoListDisplay({ taskId }: { taskId: string }) {
   const { data: session } = useSession();
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const {
     data: initialTodoList,
     error,
@@ -89,6 +92,41 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
 
   const handleCloseComments = () => {
     setCommentPopover({ isOpen: false, item: null, anchorEl: null });
+  };
+
+  const handleAICommand = async (prompt: string) => {
+    if (!list) return;
+
+    // We need to simplify the context for the AI
+    const context = list.tasks.flatMap(task => [
+      { id: task.id, type: 'task', content: task.content, completed: task.completed },
+      ...(task.subTasks || []).map(sub => ({
+        id: sub.id,
+        type: 'subtask',
+        content: sub.content,
+        completed: sub.completed,
+        parentId: task.id
+      }))
+    ]);
+
+    try {
+      const res = await fetch('/api/ai/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, listId: list.id, context }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "AI command failed");
+      }
+      
+      // The UI will update via the Pusher event, so we don't need to do anything else!
+
+    } catch (error) {
+      console.error("Failed to execute AI command:", error);
+      alert(`Error: ${error instanceof Error ? error.message : "An unknown error occurred"}`);
+    }
   };
 
   const progressPercentage = useMemo(() => {
@@ -288,6 +326,24 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
       console.error("Failed to subscribe to Pusher:", e);
     }
   }, [taskId, mutate]);
+
+  // New useEffect for keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      // Check for Cmd/Ctrl + O
+      if ((event.metaKey || event.ctrlKey) && event.key === 'o') {
+        event.preventDefault(); // Prevent browser's default behavior for Ctrl/Cmd+O
+        setIsAIModalOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
+
 
   const handleDelete = async (itemId: string, itemType: "task" | "subtask") => {
     if (!list) return;
@@ -568,10 +624,10 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
   const isOwner = session?.user?.id === list.ownerId;
 
   return (
-    <div className="flex flex-col gap-8 items-start w-full">
+    <div className="flex relative flex-col gap-8 items-start w-full">
       <TodoListHeader list={list} isOwner={isOwner} />
 
-      <div className="w-full flex flex-col items-center p-8 h-full justify-center space-y-4">
+      <div className="w-full relative flex flex-col items-center p-8 h-full justify-center space-y-4">
         <div className="w-full max-w-4xl">
           <h1 className="text-3xl w-full mb-6">{list.title}</h1>
           <div className="mb-8">
@@ -596,12 +652,26 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
           handleDelete={handleDelete}
           onOpenComments={handleOpenComments}
         />
+          <button
+          onClick={() => setIsAIModalOpen(true)}
+          className="fixed bottom-4 right-16  text-white  rounded-full cursor-pointer shadow-lg z-40"
+          title="Ask AI"
+        >
+          <Image src={"/logo/log.png"} width={400} height={400} alt="logo1.png" className="rounded-full h-16 w-16"/>
+        </button>
         <CommentPopover
           isOpen={commentPopover.isOpen}
           item={commentPopover.item}
           anchorEl={commentPopover.anchorEl}
           onClose={handleCloseComments}
         />
+        <div className="fixed bottom-8 w-full">
+           <AICommandModal
+        isOpen={isAIModalOpen}
+        onClose={() => setIsAIModalOpen(false)}
+        onExecute={handleAICommand}
+      />
+        </div>
       </div>
     </div>
   );

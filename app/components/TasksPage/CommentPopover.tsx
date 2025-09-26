@@ -89,12 +89,9 @@ export const CommentPopover: FC<CommentPopoverProps> = ({ isOpen, onClose, item,
   return (
     <div
       ref={popoverRef}
-      className="fixed z-50 flex flex-col w-[380px] h-auto max-h-[70vh] bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl"
+      className="fixed z-50 flex flex-col w-[380px] h-auto max-h-[70vh] bg-zinc-800 rounded-lg shadow-xl"
     >
-      <div className="p-3 border-b border-zinc-700 flex justify-between items-center text-zinc-300">
-       <h2 className="font-semibold text-sm truncate pr-4">Conversation in &quot;{item.content}&quot;</h2>
-        <button onClick={onClose} className="hover:text-white cursor-pointer"><X size={18} /></button>
-      </div>
+    
 
       <div className="flex-grow p-3 overflow-y-auto space-y-4">
         {isLoading && <LoaderCircle className="animate-spin mx-auto mt-8 text-zinc-400" />}
@@ -115,7 +112,7 @@ export const CommentPopover: FC<CommentPopoverProps> = ({ isOpen, onClose, item,
         ))}
       </div>
 
-      <div className="p-3 border-t border-zinc-700">
+      <div className="p-3  ">
         <form onSubmit={handleSubmit} className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 rounded-md p-1.5">
           <input
             type="text"
