@@ -657,7 +657,7 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
           className="fixed bottom-4 right-16  text-white  rounded-full cursor-pointer  z-40"
           title="Ask AI"
         >
-          <Image src={"/logo/final1.gif"} width={400} height={400} alt="logo1.png" className="rounded-full h-20 w-20"/>
+          <Image src={"/logo/final2.gif"} width={400} height={400} alt="logo1.png" className="rounded-full h-20 w-20"/>
         </button>
         <CommentPopover
           isOpen={commentPopover.isOpen}
