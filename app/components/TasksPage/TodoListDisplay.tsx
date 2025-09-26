@@ -1,22 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, KeyboardEvent } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { TodoList, Task, SubTask } from "@/app/types";
 import PusherClient from "pusher-js";
-import {
-  Check,
-  Square,
-  LoaderCircle,
-  ServerCrash,
-  ArrowLeft,
-} from "lucide-react";
-import { SharePopover } from "../main/ShareProvider";
-import { Avatar } from "../ui/avatar";
+import ProgressBar from "../ui/ProgressBar";
+import { LoaderCircle, ServerCrash, ArrowLeft } from "lucide-react";
+import { TodoListHeader } from "./TodoListHeader";
+import { TaskList } from "./TaskList";
 
-// Helper Error class for fetcher
 class FetchError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -26,7 +20,6 @@ class FetchError extends Error {
   }
 }
 
-// Data fetching function for SWR
 const fetcher = async (url: string): Promise<TodoList> => {
   const res = await fetch(url);
   if (!res.ok) {
@@ -38,7 +31,6 @@ const fetcher = async (url: string): Promise<TodoList> => {
   return res.json();
 };
 
-// Singleton pattern for Pusher client instance
 let pusherClient: PusherClient | null = null;
 const getPusherClient = () => {
   if (!pusherClient) {
@@ -58,39 +50,57 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
     isLoading,
   } = useSWR<TodoList, FetchError>(`/api/tasks/${taskId}`, fetcher);
   const { mutate } = useSWRConfig();
-  const [isSharePopoverOpen, setIsSharePopoverOpen] = useState(false);
   const [list, setList] = useState<TodoList | null>(null);
-
-  // State for inline editing
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const [addingItem, setAddingItem] = useState<{
+    type: "task" | "subtask";
+    parentId?: string;
+  } | null>(null);
 
-  // Sync SWR data with local component state
+  const progressPercentage = useMemo(() => {
+    if (!list || !list.tasks || list.tasks.length === 0) return 0;
+    let totalItems = 0;
+    let completedItems = 0;
+    list.tasks.forEach((task) => {
+      totalItems++;
+      if (task.completed) completedItems++;
+      if (task.subTasks) {
+        task.subTasks.forEach((subTask) => {
+          totalItems++;
+          if (subTask.completed) completedItems++;
+        });
+      }
+    });
+    return totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
+  }, [list]);
+
   useEffect(() => {
-    if (initialTodoList) {
-      setList(initialTodoList);
-    }
+    if (initialTodoList) setList(initialTodoList);
   }, [initialTodoList]);
 
-  // Focus the input field when editing begins
   useEffect(() => {
-    if (editingItemId && inputRef.current) {
-      inputRef.current.focus();
-    }
+    if (editingItemId && inputRef.current) inputRef.current.focus();
   }, [editingItemId]);
 
-  // Setup Pusher subscriptions and event bindings
   useEffect(() => {
     if (!taskId) return;
-
     const pusher = getPusherClient();
     const channelName = `private-list-${taskId}`;
-
     try {
       const channel = pusher.subscribe(channelName);
+      const handleUpdate = (updateFn: (currentData: TodoList) => TodoList) => {
+        mutate(
+          `/api/tasks/${taskId}`,
+          (currentData: TodoList | undefined) => {
+            if (!currentData) return currentData;
+            return updateFn(currentData);
+          },
+          { revalidate: false }
+        );
+      };
 
-      // Bind to completion status updates
       channel.bind(
         "item-updated",
         (data: {
@@ -98,34 +108,27 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
           itemType: "task" | "subtask";
           completed: boolean;
         }) => {
-          mutate(
-            `/api/tasks/${taskId}`,
-            (currentData: TodoList | undefined) => {
-              if (!currentData) return currentData;
-
-              const updatedTasks = currentData.tasks.map((task) => {
-                if (data.itemType === "task" && task.id === data.itemId) {
-                  return { ...task, completed: data.completed };
-                }
-                if (data.itemType === "subtask") {
-                  const updatedSubTasks = task.subTasks.map((sub) =>
+          handleUpdate((current) => ({
+            ...current,
+            tasks: current.tasks.map((task) => {
+              if (data.itemType === "task" && task.id === data.itemId)
+                return { ...task, completed: data.completed };
+              if (data.itemType === "subtask") {
+                return {
+                  ...task,
+                  subTasks: task.subTasks.map((sub) =>
                     sub.id === data.itemId
                       ? { ...sub, completed: data.completed }
                       : sub
-                  );
-                  return { ...task, subTasks: updatedSubTasks };
-                }
-                return task;
-              });
-
-              return { ...currentData, tasks: updatedTasks };
-            },
-            { revalidate: false }
-          );
+                  ),
+                };
+              }
+              return task;
+            }),
+          }));
         }
       );
 
-      // Bind to content/text updates
       channel.bind(
         "item-content-updated",
         (data: {
@@ -133,50 +136,67 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
           itemType: "task" | "subtask";
           content: string;
         }) => {
-          mutate(
-            `/api/tasks/${taskId}`,
-            (currentData: TodoList | undefined) => {
-              if (!currentData) return currentData;
-
-              const updatedTasks = currentData.tasks.map((task) => {
-                if (data.itemType === "task" && task.id === data.itemId) {
-                  return { ...task, content: data.content };
-                }
-                if (data.itemType === "subtask") {
-                  const updatedSubTasks = task.subTasks.map((sub) =>
+          handleUpdate((current) => ({
+            ...current,
+            tasks: current.tasks.map((task) => {
+              if (data.itemType === "task" && task.id === data.itemId)
+                return { ...task, content: data.content };
+              if (data.itemType === "subtask") {
+                return {
+                  ...task,
+                  subTasks: task.subTasks.map((sub) =>
                     sub.id === data.itemId
                       ? { ...sub, content: data.content }
                       : sub
-                  );
-                  return { ...task, subTasks: updatedSubTasks };
-                }
-                return task;
-              });
-
-              return { ...currentData, tasks: updatedTasks };
-            },
-            { revalidate: false }
-          );
+                  ),
+                };
+              }
+              return task;
+            }),
+          }));
         }
       );
 
-      // Cleanup on component unmount
-      return () => {
-        pusher.unsubscribe(channelName);
-      };
+      channel.bind(
+        "item-added",
+        (data: {
+          item: Task | SubTask;
+          itemType: "task" | "subtask";
+          parentId?: string;
+        }) => {
+          handleUpdate((currentData) => {
+            if (data.itemType === "task") {
+              return {
+                ...currentData,
+                tasks: [...currentData.tasks, data.item as Task],
+              };
+            } else {
+              const updatedTasks = currentData.tasks.map((task) => {
+                if (task.id === data.parentId) {
+                  return {
+                    ...task,
+                    subTasks: [...(task.subTasks || []), data.item as SubTask],
+                  };
+                }
+                return task;
+              });
+              return { ...currentData, tasks: updatedTasks };
+            }
+          });
+        }
+      );
+
+      return () => pusher.unsubscribe(channelName);
     } catch (e) {
       console.error("Failed to subscribe to Pusher:", e);
     }
   }, [taskId, mutate]);
 
-  // Handles toggling the 'completed' state of a task or subtask
   const handleToggle = async (itemId: string, isSubTask: boolean) => {
-    if (!list || editingItemId === itemId) return; // Prevent toggle when editing
-
+    if (!list || editingItemId === itemId) return;
     const itemType = isSubTask ? "subtask" : "task";
+    const originalList = JSON.parse(JSON.stringify(list));
     let newCompletedState: boolean | undefined;
-
-    const originalList = JSON.parse(JSON.stringify(list)); // Deep copy for rollback
 
     const updatedList = {
       ...list,
@@ -186,27 +206,33 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
           return { ...task, completed: newCompletedState };
         }
         if (isSubTask) {
-          return {
-            ...task,
-            subTasks: task.subTasks.map((sub) => {
-              if (sub.id === itemId) {
-                newCompletedState = !sub.completed;
-                return { ...sub, completed: newCompletedState };
-              }
-              return sub;
-            }),
-          };
+          const subTask = task.subTasks.find((sub) => sub.id === itemId);
+          if (subTask) {
+            newCompletedState = !subTask.completed;
+            return {
+              ...task,
+              subTasks: task.subTasks.map((sub) =>
+                sub.id === itemId
+                  ? {
+                      ...sub,
+                      completed:
+                        typeof newCompletedState === "boolean"
+                          ? newCompletedState
+                          : false,
+                    }
+                  : sub
+              ),
+            };
+          }
         }
         return task;
       }),
     };
 
-    setList(updatedList); // Optimistic UI update
+    setList(updatedList);
 
     try {
-      const pusher = getPusherClient();
-      const socketId = pusher.connection.socket_id;
-
+      const socketId = getPusherClient().connection.socket_id;
       const res = await fetch(`/api/tasks/${list.id}/${itemType}/${itemId}`, {
         method: "PATCH",
         headers: {
@@ -215,61 +241,52 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
         },
         body: JSON.stringify({ completed: newCompletedState }),
       });
-
-      if (!res.ok) {
-        throw new Error("Failed to update task on the server.");
-      }
-
+      if (!res.ok) throw new Error("Failed to update task on the server.");
       mutate(`/api/tasks/${taskId}`, updatedList, { revalidate: false });
     } catch (error) {
       console.error("Failed to update:", error);
-      setList(originalList); // Rollback on failure
-      alert("Could not update the task. Please try again.");
+      setList(originalList);
     }
   };
 
-  // Puts a task/subtask into editing mode
   const startEditing = (item: Task | SubTask) => {
+    setAddingItem(null);
     setEditingItemId(item.id);
     setEditText(item.content);
   };
 
-  // Saves the edited content of a task or subtask
   const handleSaveEdit = async () => {
     if (!editingItemId || !list) return;
-
-    let originalItem: (Task | SubTask) | undefined;
     let isSubTask = false;
+    let originalContent: string | undefined;
+
     for (const task of list.tasks) {
       if (task.id === editingItemId) {
-        originalItem = task;
+        originalContent = task.content;
         break;
       }
       const subTask = task.subTasks.find((sub) => sub.id === editingItemId);
       if (subTask) {
-        originalItem = subTask;
+        originalContent = subTask.content;
         isSubTask = true;
         break;
       }
     }
 
-    // Exit if there's no change
-    if (!originalItem || originalItem.content === editText.trim()) {
+    if (originalContent === editText.trim()) {
       setEditingItemId(null);
       return;
     }
 
     const itemType = isSubTask ? "subtask" : "task";
     const newContent = editText.trim();
-
-    // Optimistic UI update
     const originalList = JSON.parse(JSON.stringify(list));
+
     const updatedList = {
       ...list,
       tasks: list.tasks.map((task) => {
-        if (!isSubTask && task.id === editingItemId) {
+        if (!isSubTask && task.id === editingItemId)
           return { ...task, content: newContent };
-        }
         if (isSubTask) {
           return {
             ...task,
@@ -281,13 +298,12 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
         return task;
       }),
     };
+
     setList(updatedList);
-    setEditingItemId(null); // Exit editing mode
+    setEditingItemId(null);
 
     try {
-      const pusher = getPusherClient();
-      const socketId = pusher.connection.socket_id;
-
+      const socketId = getPusherClient().connection.socket_id;
       const res = await fetch(
         `/api/tasks/${list.id}/${itemType}/${editingItemId}`,
         {
@@ -299,37 +315,100 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
           body: JSON.stringify({ content: newContent }),
         }
       );
-
-      if (!res.ok) throw new Error("Failed to update task content on server.");
-
+      if (!res.ok) throw new Error("Failed to update content on server.");
       mutate(`/api/tasks/${taskId}`, updatedList, { revalidate: false });
     } catch (error) {
       console.error("Failed to update content:", error);
-      setList(originalList); // Revert on failure
-      alert("Could not update the task content. Please try again.");
+      setList(originalList);
     }
   };
 
-  // Handles keyboard events for the input field (Enter and Escape)
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      handleSaveEdit();
-    } else if (e.key === "Escape") {
-      setEditingItemId(null);
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleSaveEdit();
+    else if (e.key === "Escape") setEditingItemId(null);
+  };
+
+  const handleStartAddTask = () => {
+    setEditingItemId(null);
+    setAddingItem({ type: "task" });
+  };
+
+  const handleStartAddSubTask = (parentId: string) => {
+    setEditingItemId(null);
+    setAddingItem({ type: "subtask", parentId });
+  };
+
+  const handleCancelAdd = () => {
+    setAddingItem(null);
+  };
+
+  const handleSaveNewItem = async (content: string) => {
+    if (!list || !addingItem) return;
+
+    const { type, parentId } = addingItem;
+    const tempId = `temp-${Date.now()}`;
+    const originalList = JSON.parse(JSON.stringify(list));
+    setAddingItem(null);
+
+    let optimisticList: TodoList;
+    if (type === "task") {
+      const newTask: Task = {
+        id: tempId,
+        content,
+        completed: false,
+        order: list.tasks.length,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        subTasks: [],
+      };
+      optimisticList = { ...list, tasks: [...list.tasks, newTask] };
+    } else {
+      const newSubTask: SubTask = {
+        id: tempId,
+        content,
+        completed: false,
+        order: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      optimisticList = {
+        ...list,
+        tasks: list.tasks.map((t) =>
+          t.id === parentId
+            ? { ...t, subTasks: [...(t.subTasks || []), newSubTask] }
+            : t
+        ),
+      };
+    }
+    setList(optimisticList);
+
+    try {
+      const socketId = getPusherClient().connection.socket_id;
+      const res = await fetch(`/api/tasks/${list.id}/append`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-socket-id": socketId,
+        },
+        body: JSON.stringify({ content, type, parentId }),
+      });
+
+      if (!res.ok) throw new Error("Failed to save item on the server.");
+      await mutate(`/api/tasks/${taskId}`);
+    } catch (error) {
+      console.error("Failed to save new item:", error);
+      setList(originalList);
+      alert("Could not add item. Please try again.");
     }
   };
 
-  // Loading State UI
-  if (isLoading) {
+  if (isLoading)
     return (
       <div className="flex justify-center items-center h-screen">
         <LoaderCircle className="animate-spin text-gray-500" size={48} />
       </div>
     );
-  }
-
-  // Error State UI
-  if (error) {
+  if (error)
     return (
       <div className="flex flex-col items-center justify-center h-screen text-red-500">
         <ServerCrash size={48} />
@@ -348,127 +427,37 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
         </Link>
       </div>
     );
-  }
-
-  // Null state if list hasn't loaded yet
   if (!list) return null;
 
   const isOwner = session?.user?.id === list.ownerId;
-  const participants = [list.owner, ...list.collaborators.map((c) => c.user)];
 
   return (
     <div className="flex flex-col gap-8 items-start w-full">
-      <div className="w-full flex justify-between items-center">
-        <h1 className="text-sm">{list.title}</h1>
-        <div className="relative flex gap-4 items-center lg:mr-8">
-          <p className="text-zinc-600 text-sm">Edited just now</p>
+      <TodoListHeader list={list} isOwner={isOwner} />
 
-          {participants.length > 1 && (
-            <div className="flex items-center">
-              {participants.map((participant, index) => (
-                <div key={participant.id} className={index > 0 ? "-ml-2" : ""}>
-                  <Avatar name={participant.name || participant.username} />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {isOwner && (
-            <>
-              <button
-                onClick={() => setIsSharePopoverOpen((prev) => !prev)}
-                className="text-sm cursor-pointer hover:text-zinc-600"
-              >
-                Share
-              </button>
-              {isSharePopoverOpen && (
-                <SharePopover
-                  listId={list.id}
-                  onClose={() => setIsSharePopoverOpen(false)}
-                />
-              )}
-            </>
-          )}
-        </div>
-      </div>
       <div className="w-full flex flex-col items-center p-8 h-full justify-center space-y-4">
         <div className="w-full max-w-4xl">
           <h1 className="text-3xl w-full mb-6">{list.title}</h1>
-        </div>
-        {list.tasks.map((task) => (
-          <div key={task.id} className="p-4 max-w-4xl w-full rounded-lg">
-            <div className="flex items-center gap-3">
-              <div
-                className="cursor-pointer"
-                onClick={() => handleToggle(task.id, false)}
-              >
-                {task.completed ? (
-                  <Check className="text-green-500" />
-                ) : (
-                  <Square className="text-gray-400" />
-                )}
-              </div>
-              {editingItemId === task.id ? (
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={editText}
-                  onChange={(e) => setEditText(e.target.value)}
-                  onBlur={handleSaveEdit}
-                  onKeyDown={handleKeyDown}
-                  className="text-base font-bold bg-transparent border-b border-gray-400 focus:outline-none focus:border-blue-500 w-full"
-                />
-              ) : (
-                <span
-                  onClick={() => startEditing(task)}
-                  className={`text-base font-bold cursor-pointer ${
-                    task.completed ? "line-through text-gray-500" : ""
-                  }`}
-                >
-                  {task.content}
-                </span>
-              )}
-            </div>
-            {task.subTasks && task.subTasks.length > 0 && (
-              <div className="mt-3 pl-8 space-y-2">
-                {task.subTasks.map((subTask) => (
-                  <div key={subTask.id} className="flex items-center gap-3">
-                    <div
-                      className="cursor-pointer"
-                      onClick={() => handleToggle(subTask.id, true)}
-                    >
-                      {subTask.completed ? (
-                        <Check size={16} className="text-green-500" />
-                      ) : (
-                        <Square size={16} className="text-gray-400" />
-                      )}
-                    </div>
-                    {editingItemId === subTask.id ? (
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                        onBlur={handleSaveEdit}
-                        onKeyDown={handleKeyDown}
-                        className="text-sm bg-transparent border-b border-gray-400 focus:outline-none focus:border-blue-500 w-full"
-                      />
-                    ) : (
-                      <span
-                        onClick={() => startEditing(subTask)}
-                        className={`text-sm cursor-pointer ${
-                          subTask.completed ? "line-through text-gray-500" : ""
-                        }`}
-                      >
-                        {subTask.content}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="mb-8">
+            <ProgressBar progress={progressPercentage} />
           </div>
-        ))}
+        </div>
+        <TaskList
+          tasks={list.tasks}
+          editingItemId={editingItemId}
+          editText={editText}
+          handleToggle={handleToggle}
+          startEditing={startEditing}
+          handleSaveEdit={handleSaveEdit}
+          handleKeyDown={handleKeyDown}
+          setEditText={setEditText}
+          inputRef={inputRef}
+          addingItem={addingItem}
+          onStartAddTask={handleStartAddTask}
+          onStartAddSubTask={handleStartAddSubTask}
+          onSaveNewItem={handleSaveNewItem}
+          onCancelAdd={handleCancelAdd}
+        />
       </div>
     </div>
   );

@@ -1,10 +1,12 @@
 
-export interface SubTask {
+export type SubTask = {
   id: string;
   content: string;
   completed: boolean;
   order: number;
-}
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export interface Task {
   id: string;
@@ -12,6 +14,8 @@ export interface Task {
   completed: boolean;
   order: number;
   subTasks: SubTask[];
+   createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface User {
