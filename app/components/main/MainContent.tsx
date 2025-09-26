@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import MainTextArea from './TextArea';
 import TodoResult from './Result';  
+import { useSWRConfig } from 'swr'; 
 import { TodoList } from '@/app/types'; 
 
 export default function MainContent() {
   const [todoList, setTodoList] = useState<TodoList | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { mutate } = useSWRConfig(); 
 
   const handleGenerateList = async (prompt: string) => {
     if (!prompt.trim()) {
@@ -36,6 +38,8 @@ export default function MainContent() {
 
       const newTodoList: TodoList = await response.json();
       setTodoList(newTodoList);
+      
+      mutate('/api/tasks/getTasks'); 
 
     } catch (err) {
       console.error(err);
