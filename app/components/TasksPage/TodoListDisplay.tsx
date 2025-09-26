@@ -10,6 +10,7 @@ import ProgressBar from "../ui/ProgressBar";
 import { LoaderCircle, ServerCrash, ArrowLeft } from "lucide-react";
 import { TodoListHeader } from "./TodoListHeader";
 import { TaskList } from "./TaskList";
+import { CommentPopover } from "./CommentPopover";
 
 class FetchError extends Error {
   status: number;
@@ -58,6 +59,37 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
     type: "task" | "subtask";
     parentId?: string;
   } | null>(null);
+  const [commentPopover, setCommentPopover] = useState<{
+    isOpen: boolean;
+    item:
+      | ((Task | SubTask) & { itemType: "task" | "subtask"; listId: string })
+      | null;
+    anchorEl: HTMLElement | null;
+  }>({ isOpen: false, item: null, anchorEl: null });
+
+  const [commentSidebar, setCommentSidebar] = useState<{
+    isOpen: boolean;
+    item:
+      | ((Task | SubTask) & { itemType: "task" | "subtask"; listId: string })
+      | null;
+  }>({ isOpen: false, item: null });
+
+  const handleOpenComments = (
+    item: Task | SubTask,
+    itemType: "task" | "subtask",
+    event: React.MouseEvent
+  ) => {
+    if (!list) return;
+    setCommentPopover({
+      isOpen: true,
+      item: { ...item, itemType, listId: list.id },
+      anchorEl: event.currentTarget as HTMLElement,
+    });
+  };
+
+  const handleCloseComments = () => {
+    setCommentPopover({ isOpen: false, item: null, anchorEl: null });
+  };
 
   const progressPercentage = useMemo(() => {
     if (!list || !list.tasks || list.tasks.length === 0) return 0;
@@ -186,28 +218,70 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
         }
       );
 
-       channel.bind(
-      "item-deleted",
-      (data: { itemId: string; itemType: "task" | "subtask" }) => {
-        handleUpdate((currentData) => {
-          if (data.itemType === "task") {
-            return {
-              ...currentData,
-              tasks: currentData.tasks.filter((task) => task.id !== data.itemId),
-            };
-          } else {
-            return {
-              ...currentData,
-              tasks: currentData.tasks.map((task) => ({
-                ...task,
-                subTasks: task.subTasks?.filter((sub) => sub.id !== data.itemId) || [],
-              })),
-            };
-          }
-        });
-      }
-    );
+      channel.bind(
+        "item-deleted",
+        (data: { itemId: string; itemType: "task" | "subtask" }) => {
+          handleUpdate((currentData) => {
+            if (data.itemType === "task") {
+              return {
+                ...currentData,
+                tasks: currentData.tasks.filter(
+                  (task) => task.id !== data.itemId
+                ),
+              };
+            } else {
+              return {
+                ...currentData,
+                tasks: currentData.tasks.map((task) => ({
+                  ...task,
+                  subTasks:
+                    task.subTasks?.filter((sub) => sub.id !== data.itemId) ||
+                    [],
+                })),
+              };
+            }
+          });
+        }
+      );
 
+      channel.bind(
+        "comment-added",
+        (data: {
+          comment: Comment;
+          itemId: string;
+          itemType: "task" | "subtask";
+        }) => {
+          const swrKey = `/api/comments/${data.itemType}/${data.itemId}`;
+          mutate(swrKey);
+
+          mutate(
+            `/api/tasks/${taskId}`,
+            (currentData: TodoList | undefined) => {
+              if (!currentData) return currentData;
+              const updatedTasks = currentData.tasks.map((task) => {
+                let newCount = task._count?.comments || 0;
+                if (data.itemType === "task" && task.id === data.itemId) {
+                  newCount++;
+                }
+                const updatedSubTasks = task.subTasks.map((sub) => {
+                  let newSubCount = sub._count?.comments || 0;
+                  if (data.itemType === "subtask" && sub.id === data.itemId) {
+                    newSubCount++;
+                  }
+                  return { ...sub, _count: { comments: newSubCount } };
+                });
+                return {
+                  ...task,
+                  _count: { comments: newCount },
+                  subTasks: updatedSubTasks,
+                };
+              });
+              return { ...currentData, tasks: updatedTasks };
+            },
+            false
+          );
+        }
+      );
 
       return () => pusher.unsubscribe(channelName);
     } catch (e) {
@@ -215,30 +289,28 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
     }
   }, [taskId, mutate]);
 
-   const handleDelete = async (itemId: string, itemType: "task" | "subtask") => {
+  const handleDelete = async (itemId: string, itemType: "task" | "subtask") => {
     if (!list) return;
 
     const originalList = JSON.parse(JSON.stringify(list));
-    
-    // 1. Optimistic UI Update
+
     let optimisticList;
-    if (itemType === 'task') {
+    if (itemType === "task") {
       optimisticList = {
         ...list,
-        tasks: list.tasks.filter(task => task.id !== itemId)
+        tasks: list.tasks.filter((task) => task.id !== itemId),
       };
     } else {
       optimisticList = {
         ...list,
-        tasks: list.tasks.map(task => ({
+        tasks: list.tasks.map((task) => ({
           ...task,
-          subTasks: task.subTasks?.filter(sub => sub.id !== itemId) || []
-        }))
+          subTasks: task.subTasks?.filter((sub) => sub.id !== itemId) || [],
+        })),
       };
     }
     setList(optimisticList);
 
-    // 2. API Call
     try {
       const socketId = getPusherClient().connection.socket_id;
       const res = await fetch(`/api/tasks/${list.id}/${itemType}/${itemId}`, {
@@ -248,17 +320,13 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
 
       if (!res.ok) throw new Error("Failed to delete item from server.");
 
-      // Optional: confirm the optimistic update with SWR without re-fetching
       mutate(`/api/tasks/${taskId}`, optimisticList, { revalidate: false });
-
     } catch (error) {
       console.error("Failed to delete item:", error);
-      // On failure, revert the optimistic update
       setList(originalList);
       alert("Could not delete the item. Please try again.");
     }
   };
-
 
   const handleToggle = async (itemId: string, isSubTask: boolean) => {
     if (!list || editingItemId === itemId) return;
@@ -526,6 +594,13 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
           onSaveNewItem={handleSaveNewItem}
           onCancelAdd={handleCancelAdd}
           handleDelete={handleDelete}
+          onOpenComments={handleOpenComments}
+        />
+        <CommentPopover
+          isOpen={commentPopover.isOpen}
+          item={commentPopover.item}
+          anchorEl={commentPopover.anchorEl}
+          onClose={handleCloseComments}
         />
       </div>
     </div>

@@ -1,4 +1,12 @@
 
+export interface Comment {
+  id: string;
+  content: string;
+  createdAt: Date;
+  author: User;
+}
+
+
 export type SubTask = {
   id: string;
   content: string;
@@ -6,6 +14,9 @@ export type SubTask = {
   order: number;
   createdAt: Date;
   updatedAt: Date;
+    _count?: {
+    comments: number;
+  };
 };
 
 export interface Task {
@@ -16,6 +27,9 @@ export interface Task {
   subTasks: SubTask[];
    createdAt: Date;
   updatedAt: Date;
+    _count?: {
+    comments: number;
+  };
 }
 
 export interface User {

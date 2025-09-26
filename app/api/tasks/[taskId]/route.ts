@@ -5,7 +5,6 @@ import { prisma } from "@/app/lib/prisma";
 
 export async function GET(
   req: NextRequest,
-  // The key change is here: { params } is now a Promise
   { params }: { params: Promise<{ taskId: string }> }
 ) {
   try {
@@ -16,8 +15,7 @@ export async function GET(
     }
 
     const userId = session.user.id;
-    // You must now 'await' the params to get the taskId
-    const { taskId } = await params; 
+    const { taskId } = await params;
 
     const todoList = await prisma.todoList.findFirst({
       where: {
@@ -41,7 +39,19 @@ export async function GET(
         },
         tasks: {
           orderBy: { order: "asc" },
-          include: { subTasks: { orderBy: { order: "asc" } } },
+          include: {
+            subTasks: {
+              orderBy: { order: "asc" },
+              include: {
+                _count: {
+                  select: { comments: true },
+                },
+              },
+            },
+            _count: {
+              select: { comments: true },
+            },
+          },
         },
       },
     });

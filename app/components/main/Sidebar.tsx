@@ -155,7 +155,7 @@ export default function Sidebar() {
         }`}
       >
         <Link className="text-lg font-bold truncate" href="/">
-          {user ? `${user}'s Tasks` : "Tasks"}
+          {user ? `${user}'s Trash` : "Trash"}
         </Link>
         <Link
           className="p-1 rounded-md hover:bg-zinc-700"

@@ -122,14 +122,14 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { taskId: string; itemType: string; itemId: string } }
+  { params }: { params: Promise<{ taskId: string; itemType: string; itemId: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const { taskId, itemType, itemId } = params;
+  const { taskId, itemType, itemId } =await params;
   const socketId = req.headers.get("x-socket-id");
 
   const list = await prisma.todoList.findUnique({
