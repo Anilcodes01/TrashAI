@@ -118,3 +118,66 @@ export async function PATCH(
     );
   }
 }
+
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: { taskId: string; itemType: string; itemId: string } }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
+  const { taskId, itemType, itemId } = params;
+  const socketId = req.headers.get("x-socket-id");
+
+  const list = await prisma.todoList.findUnique({
+    where: { id: taskId },
+    include: {
+      collaborators: { where: { status: "ACCEPTED" } },
+    },
+  });
+
+  if (!list) {
+    return NextResponse.json({ message: "List not found" }, { status: 404 });
+  }
+
+  const isOwner = list.ownerId === session.user.id;
+  const isCollaborator = list.collaborators.some(
+    (c) => c.userId === session.user.id
+  );
+
+  if (!isOwner && !isCollaborator) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
+
+  try {
+    if (itemType === "task") {
+      await prisma.task.delete({
+        where: { id: itemId },
+      });
+    } else if (itemType === "subtask") {
+      await prisma.subTask.delete({
+        where: { id: itemId },
+      });
+    } else {
+      return NextResponse.json({ message: "Invalid item type" }, { status: 400 });
+    }
+
+    const channelName = `private-list-${taskId}`;
+    const eventName = "item-deleted";
+    const payload = { itemId, itemType };
+
+    if (socketId) {
+      await pusher.trigger(channelName, eventName, payload, { socket_id: socketId });
+    } else {
+      await pusher.trigger(channelName, eventName, payload);
+    }
+
+    return new NextResponse(null, { status: 204 }); 
+  } catch (error) {
+    console.error("Failed to delete item:", error);
+    return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
+  }
+}

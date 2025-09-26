@@ -186,11 +186,79 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
         }
       );
 
+       channel.bind(
+      "item-deleted",
+      (data: { itemId: string; itemType: "task" | "subtask" }) => {
+        handleUpdate((currentData) => {
+          if (data.itemType === "task") {
+            return {
+              ...currentData,
+              tasks: currentData.tasks.filter((task) => task.id !== data.itemId),
+            };
+          } else {
+            return {
+              ...currentData,
+              tasks: currentData.tasks.map((task) => ({
+                ...task,
+                subTasks: task.subTasks?.filter((sub) => sub.id !== data.itemId) || [],
+              })),
+            };
+          }
+        });
+      }
+    );
+
+
       return () => pusher.unsubscribe(channelName);
     } catch (e) {
       console.error("Failed to subscribe to Pusher:", e);
     }
   }, [taskId, mutate]);
+
+   const handleDelete = async (itemId: string, itemType: "task" | "subtask") => {
+    if (!list) return;
+
+    const originalList = JSON.parse(JSON.stringify(list));
+    
+    // 1. Optimistic UI Update
+    let optimisticList;
+    if (itemType === 'task') {
+      optimisticList = {
+        ...list,
+        tasks: list.tasks.filter(task => task.id !== itemId)
+      };
+    } else {
+      optimisticList = {
+        ...list,
+        tasks: list.tasks.map(task => ({
+          ...task,
+          subTasks: task.subTasks?.filter(sub => sub.id !== itemId) || []
+        }))
+      };
+    }
+    setList(optimisticList);
+
+    // 2. API Call
+    try {
+      const socketId = getPusherClient().connection.socket_id;
+      const res = await fetch(`/api/tasks/${list.id}/${itemType}/${itemId}`, {
+        method: "DELETE",
+        headers: { "x-socket-id": socketId },
+      });
+
+      if (!res.ok) throw new Error("Failed to delete item from server.");
+
+      // Optional: confirm the optimistic update with SWR without re-fetching
+      mutate(`/api/tasks/${taskId}`, optimisticList, { revalidate: false });
+
+    } catch (error) {
+      console.error("Failed to delete item:", error);
+      // On failure, revert the optimistic update
+      setList(originalList);
+      alert("Could not delete the item. Please try again.");
+    }
+  };
+
 
   const handleToggle = async (itemId: string, isSubTask: boolean) => {
     if (!list || editingItemId === itemId) return;
@@ -457,6 +525,7 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
           onStartAddSubTask={handleStartAddSubTask}
           onSaveNewItem={handleSaveNewItem}
           onCancelAdd={handleCancelAdd}
+          handleDelete={handleDelete}
         />
       </div>
     </div>

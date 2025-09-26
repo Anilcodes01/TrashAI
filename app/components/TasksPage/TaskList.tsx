@@ -15,10 +15,8 @@ interface TaskListProps {
   handleSaveEdit: () => void;
   handleKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   setEditText: (value: string) => void;
-  // This ref type is okay, but often it's just HTMLInputElement
+ handleDelete: (itemId: string, itemType: 'task' | 'subtask') => void; 
   inputRef: React.RefObject<HTMLInputElement | null>; 
-
-  // Props for adding new items
   addingItem: { type: "task" | "subtask"; parentId?: string } | null;
   onStartAddTask: () => void;
   onStartAddSubTask: (parentId: string) => void;
@@ -33,6 +31,7 @@ export const TaskList: FC<TaskListProps> = ({
   onStartAddSubTask, 
   onSaveNewItem, 
   onCancelAdd, 
+  handleDelete,
   ...props 
 }) => {
   return (
@@ -52,14 +51,15 @@ export const TaskList: FC<TaskListProps> = ({
               onSaveEdit={props.handleSaveEdit}
               onKeyDown={props.handleKeyDown}
               onTextChange={props.setEditText}
+              onDelete={() => handleDelete(task.id, 'task')}
               inputRef={props.inputRef as React.RefObject<HTMLInputElement>}
             />
             <button
                 onClick={() => onStartAddSubTask(task.id)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity ml-4" // Show on parent hover
+                className="opacity-0 cursor-pointer group-hover:opacity-100 transition-opacity ml-4" // Show on parent hover
                 title="Add sub-task"
             >
-                <CornerDownRight size={18} className="text-gray-500 hover:text-gray-800" />
+                <CornerDownRight size={18} className="text-gray-500 hover:text-green-500" />
             </button>
           </div>
           
@@ -77,6 +77,7 @@ export const TaskList: FC<TaskListProps> = ({
                 onSaveEdit={props.handleSaveEdit}
                 onKeyDown={props.handleKeyDown}
                 onTextChange={props.setEditText}
+                 onDelete={() => handleDelete(subTask.id, 'subtask')} 
                 inputRef={props.inputRef as React.RefObject<HTMLInputElement>}
               />
             ))}
