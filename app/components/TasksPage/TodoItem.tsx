@@ -38,7 +38,7 @@ export const TodoItem: FC<TodoItemProps> = ({
   const commentCount = item._count?.comments || 0;
 
   return (
-    <div className="flex items-center gap-3 w-full group">
+    <div className="flex items-center gap-3 flex-grow group">
       <div className="cursor-pointer" onClick={onToggle}>
         <CheckboxIcon size={iconSize} className={iconColor} />
       </div>
@@ -79,7 +79,7 @@ export const TodoItem: FC<TodoItemProps> = ({
 
       <button
         onClick={onDelete}
-        className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500"
+        className="ml-2 opacity-0 cursor-pointer group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500"
         title="Delete item"
       >
         <Trash2 size={isSubTask ? 14 : 16} />

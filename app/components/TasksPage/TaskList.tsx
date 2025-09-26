@@ -41,7 +41,7 @@ export const TaskList: FC<TaskListProps> = ({
       {tasks.map((task) => (
         <div key={task.id} className="p-4 max-w-4xl w-full rounded-lg ">
           
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center group">
             <TodoItem
               item={task}
               isSubTask={false}
@@ -111,7 +111,7 @@ export const TaskList: FC<TaskListProps> = ({
         <div className="p-4 max-w-4xl w-full">
             <button
               onClick={onStartAddTask}
-              className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors w-full"
+              className="flex items-center cursor-pointer gap-2 text-gray-500 hover:text-gray-800 transition-colors w-full"
             >
               <PlusCircle size={20} />
               <span className="font-semibold">Add task</span>
