@@ -28,6 +28,16 @@ interface NewInvitationPayload {
   listTitle: string;
 }
 
+// --- NEW: Helper function to play the sound ---
+const playNotificationSound = () => {
+  try {
+    const audio = new Audio('/notification1.mp3'); // Path is relative to the public folder
+    audio.play();
+  } catch (error) {
+    console.error("Could not play notification sound:", error);
+  }
+};
+
 export const NotificationProvider = () => {
   const { data: session } = useSession();
   const userId = session?.user?.id;
@@ -44,6 +54,7 @@ export const NotificationProvider = () => {
       const channel = pusher.subscribe(channelName);
 
       channel.bind('new-message', (data: NewMessagePayload) => {
+        playNotificationSound(); // <-- Play sound on new message
         toast.custom((t) => (
           <CustomNotification
             t={t}
@@ -57,6 +68,7 @@ export const NotificationProvider = () => {
       });
 
       channel.bind('new-invitation', (data: NewInvitationPayload) => {
+        playNotificationSound(); // <-- Play sound on new invitation
         toast.custom((t) => (
           <CustomNotification
             t={t}
@@ -69,13 +81,8 @@ export const NotificationProvider = () => {
         ));
       });
       
-      // --- THIS IS THE FIX ---
-      // This robust cleanup function will run when the component unmounts.
-      // In Strict Mode, this prevents creating duplicate event listeners.
       return () => {
-        // We unbind all event listeners from the channel instance before unsubscribing
         channel.unbind_all();
-        // We then fully unsubscribe from the channel on the Pusher connection
         pusher.unsubscribe(channelName);
       };
 
