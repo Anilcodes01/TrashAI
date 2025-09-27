@@ -4,15 +4,16 @@ import { useState, useEffect, useRef, useMemo, KeyboardEvent } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { TodoList, Task, SubTask } from "@/app/types";
+import { TodoList, Task, SubTask, User, Comment } from "@/app/types";
 import PusherClient from "pusher-js";
 import ProgressBar from "../ui/ProgressBar";
-import { LoaderCircle, ServerCrash, ArrowLeft, Sparkles } from "lucide-react";
+import { LoaderCircle, ServerCrash, ArrowLeft, MessageSquarePlus } from "lucide-react";
 import { TodoListHeader } from "./TodoListHeader";
 import { TaskList } from "./TaskList";
 import { CommentPopover } from "./CommentPopover";
 import { AICommandModal } from "./AI/AiCommandModal";
 import Image from "next/image";
+import { ChatModalWindow } from "./chatModalWindow/ChatModalWindow";
 
 class FetchError extends Error {
   status: number;
@@ -45,8 +46,14 @@ const getPusherClient = () => {
   return pusherClient;
 };
 
+interface PusherMessagePayload {
+  listId: string;
+  senderId: string;
+}
+
 export default function TodoListDisplay({ taskId }: { taskId: string }) {
   const { data: session } = useSession();
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const {
     data: initialTodoList,
@@ -58,6 +65,7 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const [unreadSenders, setUnreadSenders] = useState<Set<string>>(new Set());
   const [addingItem, setAddingItem] = useState<{
     type: "task" | "subtask";
     parentId?: string;
@@ -69,13 +77,6 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
       | null;
     anchorEl: HTMLElement | null;
   }>({ isOpen: false, item: null, anchorEl: null });
-
-  const [commentSidebar, setCommentSidebar] = useState<{
-    isOpen: boolean;
-    item:
-      | ((Task | SubTask) & { itemType: "task" | "subtask"; listId: string })
-      | null;
-  }>({ isOpen: false, item: null });
 
   const handleOpenComments = (
     item: Task | SubTask,
@@ -96,8 +97,6 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
 
   const handleAICommand = async (prompt: string) => {
     if (!list) return;
-
-    // We need to simplify the context for the AI
     const context = list.tasks.flatMap(task => [
       { id: task.id, type: 'task', content: task.content, completed: task.completed },
       ...(task.subTasks || []).map(sub => ({
@@ -120,9 +119,6 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
         const errorData = await res.json();
         throw new Error(errorData.message || "AI command failed");
       }
-      
-      // The UI will update via the Pusher event, so we don't need to do anything else!
-
     } catch (error) {
       console.error("Failed to execute AI command:", error);
       alert(`Error: ${error instanceof Error ? error.message : "An unknown error occurred"}`);
@@ -327,12 +323,45 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
     }
   }, [taskId, mutate]);
 
-  // New useEffect for keyboard shortcut
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const pusher = getPusherClient();
+    const channelName = `private-user-${session.user.id}`;
+    
+    try {
+      const channel = pusher.subscribe(channelName);
+      const handleNewMessage = (newMessage: PusherMessagePayload) => {
+        if (newMessage.listId === taskId) {
+          const isChattingWithSender = isChatModalOpen && document.querySelector(`[data-active-chat-id="${newMessage.senderId}"]`);
+          
+          if (!isChattingWithSender) {
+            setUnreadSenders(prev => new Set(prev).add(newMessage.senderId));
+          }
+        }
+      };
+
+      channel.bind("new-message", handleNewMessage);
+
+      return () => {
+        channel.unbind("new-message", handleNewMessage);
+      };
+    } catch (e) {
+      console.error("Failed to subscribe to Pusher for direct messages:", e);
+    }
+  }, [session, taskId, isChatModalOpen]);
+
+  const handleMarkAsRead = (senderId: string) => {
+    setUnreadSenders(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(senderId);
+      return newSet;
+    });
+  };
+
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      // Check for Cmd/Ctrl + O
       if ((event.metaKey || event.ctrlKey) && event.key === 'o') {
-        event.preventDefault(); // Prevent browser's default behavior for Ctrl/Cmd+O
+        event.preventDefault();
         setIsAIModalOpen(true);
       }
     };
@@ -342,12 +371,10 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
-
+  }, []);
 
   const handleDelete = async (itemId: string, itemType: "task" | "subtask") => {
     if (!list) return;
-
     const originalList = JSON.parse(JSON.stringify(list));
 
     let optimisticList;
@@ -375,7 +402,6 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
       });
 
       if (!res.ok) throw new Error("Failed to delete item from server.");
-
       mutate(`/api/tasks/${taskId}`, optimisticList, { revalidate: false });
     } catch (error) {
       console.error("Failed to delete item:", error);
@@ -536,7 +562,6 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
 
   const handleSaveNewItem = async (content: string) => {
     if (!list || !addingItem) return;
-
     const { type, parentId } = addingItem;
     const tempId = `temp-${Date.now()}`;
     const originalList = JSON.parse(JSON.stringify(list));
@@ -619,9 +644,9 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
         </Link>
       </div>
     );
-  if (!list) return null;
+  if (!list || !session?.user) return null;
 
-  const isOwner = session?.user?.id === list.ownerId;
+  const isOwner = session.user.id === list.ownerId;
 
   return (
     <div className="flex relative flex-col gap-8 items-start w-full">
@@ -652,12 +677,26 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
           handleDelete={handleDelete}
           onOpenComments={handleOpenComments}
         />
-          <button
+         
+        <button
           onClick={() => setIsAIModalOpen(true)}
-          className="fixed bottom-4 right-16  text-white  rounded-full cursor-pointer  z-40"
+          className="fixed bottom-4 right-16 text-white rounded-full cursor-pointer z-40"
           title="Ask AI"
         >
-          <Image src={"/logo/final2.gif"} width={400} height={400} alt="logo1.png" className="rounded-full h-20 w-20"/>
+          <Image src={"/logo/final2.gif"} width={400} height={400} alt="logo1.png" className="rounded-full h-16 w-16"/>
+        </button>
+        <button
+          onClick={() => setIsChatModalOpen(true)}
+          className="fixed bottom-16 right-13 cursor-pointer flex items-start justify-start h-16 w-16"
+          title="Open Chat"
+        >
+          <MessageSquarePlus size={36} />
+          {unreadSenders.size > 0 && (
+            <span className="absolute top-0 right-6 flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+            </span>
+          )}
         </button>
         <CommentPopover
           isOpen={commentPopover.isOpen}
@@ -667,11 +706,19 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
         />
         <div className="fixed bottom-2 w-full">
            <AICommandModal
-        isOpen={isAIModalOpen}
-        onClose={() => setIsAIModalOpen(false)}
-        onExecute={handleAICommand}
-      />
+            isOpen={isAIModalOpen}
+            onClose={() => setIsAIModalOpen(false)}
+            onExecute={handleAICommand}
+          />
         </div>
+        <ChatModalWindow
+            isOpen={isChatModalOpen}
+            onClose={() => setIsChatModalOpen(false)}
+            listId={list.id}
+            currentUser={session.user as User}
+            unreadSenders={unreadSenders}
+            onMarkAsRead={handleMarkAsRead}
+        />
       </div>
     </div>
   );
