@@ -69,6 +69,26 @@ const completeTask = {
   },
 };
 
+const deleteTask = {
+  name: 'deleteTask',
+  description: "Deletes an existing task or sub-task from the list. Use this to 'remove', or 'delete' an item.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      itemId: {
+        type: Type.STRING,
+        description: "The ID of the task or sub-task to delete"
+      },
+      itemType: {
+        type: Type.STRING,
+        enum:['task', 'subtask'],
+        description: "Specifies whether the item to delete is a 'task' or a 'subtas'",
+      },
+    },
+    required: ['itemId', 'itemType']
+  }
+}
+
 const commandSchema = z.object({
   prompt: z.string().min(1),
   listId: z.string().min(1),
@@ -110,7 +130,7 @@ export async function POST(req: Request) {
       contents: contents,
       config: {
         tools: [
-          { functionDeclarations: [createSubTask, createTask, completeTask] },
+          { functionDeclarations: [createSubTask, createTask, completeTask, deleteTask] },
         ],
       },
     });
@@ -125,146 +145,154 @@ export async function POST(req: Request) {
       );
     }
     
+    
 
     const { name, args } = call;
 
-    switch (name) {
-      // case "createTask": {
-      //   const lastTask = await prisma.task.findFirst({
-      //     where: { todoListId: listId },
-      //     orderBy: { order: "desc" },
-      //   });
-      //   const newOrder = (lastTask?.order ?? -1) + 1;
-      //   const newTask = await prisma.task.create({
-      //     data: { content: args.content, order: newOrder, todoListId: listId },
-      //   });
-      //   await pusher.trigger(
-      //     `private-list-${listId}`,
-      //     "item-added",
-      //     { item: newTask, itemType: "task" },
-      //     { socket_id: socketId ?? undefined }
-      //   );
-      //   break;
-      // }
-      // case "createSubTask": {
-      //   const lastSubTask = await prisma.subTask.findFirst({
-      //     where: { taskId: args.parentTaskId },
-      //     orderBy: { order: "desc" },
-      //   });
-      //   const newOrder = (lastSubTask?.order ?? -1) + 1;
-      //   const newSubTask = await prisma.subTask.create({
-      //     data: {
-      //       content: args.subTaskContent,
-      //       order: newOrder,
-      //       taskId: args.parentTaskId,
-      //     },
-      //   });
-      //   await pusher.trigger(
-      //     `private-list-${listId}`,
-      //     "item-added",
-      //     {
-      //       item: newSubTask,
-      //       itemType: "subtask",
-      //       parentId: args.parentTaskId,
-      //     },
-      //     { socket_id: socketId ?? undefined }
-      //   );
-      //   break;
-      // }
-      // case "completeTask": {
-      //   if (args.itemType === "task") {
-      //     await prisma.task.update({
-      //       where: { id: args.itemId },
-      //       data: { completed: true },
-      //     });
-      //   } else {
-      //     await prisma.subTask.update({
-      //       where: { id: args.itemId },
-      //       data: { completed: true },
-      //     });
-      //   }
-      //   await pusher.trigger(
-      //     `private-list-${listId}`,
-      //     "item-updated",
-      //     { itemId: args.itemId, itemType: args.itemType, completed: true },
-      //     { socket_id: socketId ?? undefined }
-      //   );
-      //   break;
-      // }
+    if (!args) {
+      return NextResponse.json(
+        { message: "AI action is missing required arguments." },
+        { status: 400 }
+      );
+    }
 
-      // case "deleteTask": {
-      //   if (args.itemType === "task") {
-      //     await prisma.task.delete({ where: { id: args.itemId } });
-      //   } else {
-      //     const subtask = await prisma.subTask.findUnique({
-      //       where: { id: args.itemId },
-      //       select: { taskId: true },
-      //     });
-      //     await prisma.subTask.delete({ where: { id: args.itemId } });
-      //     await pusher.trigger(
-      //       `private-list-${listId}`,
-      //       "item-deleted",
-      //       {
-      //         itemId: args.itemId,
-      //         itemType: args.itemType,
-      //         parentId: subtask?.taskId,
-      //       },
-      //       { socket_id: socketId ?? undefined }
-      //     );
-      //     break;
-      //   }
-      //   await pusher.trigger(
-      //     `private-list-${listId}`,
-      //     "item-deleted",
-      //     { itemId: args.itemId, itemType: args.itemType },
-      //     { socket_id: socketId ?? undefined }
-      //   );
-      //   break;
-      // }
-      // case "updateTaskContent": {
-      //   if (args.itemType === "task") {
-      //     await prisma.task.update({
-      //       where: { id: args.itemId },
-      //       data: { content: args.newContent },
-      //     });
-      //   } else {
-      //     await prisma.subTask.update({
-      //       where: { id: args.itemId },
-      //       data: { content: args.newContent },
-      //     });
-      //   }
-      //   await pusher.trigger(
-      //     `private-list-${listId}`,
-      //     "item-updated",
-      //     {
-      //       itemId: args.itemId,
-      //       itemType: args.itemType,
-      //       content: args.newContent,
-      //     },
-      //     { socket_id: socketId ?? undefined }
-      //   );
-      //   break;
-      // }
-      // case "moveTask": {
-      //   if (args.itemType === "task") {
-      //     await prisma.task.update({
-      //       where: { id: args.itemId },
-      //       data: { order: args.newOrder },
-      //     });
-      //   } else {
-      //     await prisma.subTask.update({
-      //       where: { id: args.itemId },
-      //       data: { order: args.newOrder },
-      //     });
-      //   }
-      //   await pusher.trigger(
-      //     `private-list-${listId}`,
-      //     "list-reordered",
-      //     {},
-      //     { socket_id: socketId ?? undefined }
-      //   );
-      //   break;
-      // }
+    switch (name) {
+      case "createTask": {
+        const lastTask = await prisma.task.findFirst({
+          where: { todoListId: listId },
+          orderBy: { order: "desc" },
+        });
+        const newOrder = (lastTask?.order ?? -1) + 1;
+        const newTask = await prisma.task.create({
+          data: { content: args.content as string, order: newOrder, todoListId: listId },
+        });
+        await pusher.trigger(
+          `private-list-${listId}`,
+          "item-added",
+          { item: newTask, itemType: "task" },
+          { socket_id: socketId ?? undefined }
+        );
+        break;
+      }
+      case "createSubTask": {
+        const lastSubTask = await prisma.subTask.findFirst({
+          where: { taskId: args.parentTaskId as string },
+          orderBy: { order: "desc" },
+        });
+        const newOrder = (lastSubTask?.order ?? -1) + 1;
+        const newSubTask = await prisma.subTask.create({
+          data: {
+            content: args.subTaskContent as string,
+            order: newOrder,
+            taskId: args.parentTaskId as string,
+          },
+        });
+        await pusher.trigger(
+          `private-list-${listId}`,
+          "item-added",
+          {
+            item: newSubTask,
+            itemType: "subtask",
+            parentId: args.parentTaskId as string,
+          },
+          { socket_id: socketId ?? undefined }
+        );
+        break;
+      }
+      case "completeTask": {
+        if (args.itemType === "task") {
+          await prisma.task.update({
+            where: { id: args.itemId as string },
+            data: { completed: true },
+          });
+        } else {
+          await prisma.subTask.update({
+            where: { id: args.itemId as string },
+            data: { completed: true },
+          });
+        }
+        await pusher.trigger(
+          `private-list-${listId}`,
+          "item-updated",
+          { itemId: args.itemId , itemType: args.itemType, completed: true },
+          { socket_id: socketId ?? undefined }
+        );
+        break;
+      }
+
+      case "deleteTask": {
+        if (args.itemType === "task") {
+          await prisma.task.delete({ where: { id: args.itemId as string } });
+        } else {
+          const subtask = await prisma.subTask.findUnique({
+            where: { id: args.itemId as string },
+            select: { taskId: true },
+          });
+          await prisma.subTask.delete({ where: { id: args.itemId as string } });
+          await pusher.trigger(
+            `private-list-${listId}`,
+            "item-deleted",
+            {
+              itemId: args.itemId,
+              itemType: args.itemType,
+              parentId: subtask?.taskId,
+            },
+            { socket_id: socketId ?? undefined }
+          );
+          break;
+        }
+        await pusher.trigger(
+          `private-list-${listId}`,
+          "item-deleted",
+          { itemId: args.itemId, itemType: args.itemType },
+          { socket_id: socketId ?? undefined }
+        );
+        break;
+      }
+      case "updateTaskContent": {
+        if (args.itemType === "task") {
+          await prisma.task.update({
+            where: { id: args.itemId as string },
+            data: { content: args.newContent as string },
+          });
+        } else {
+          await prisma.subTask.update({
+            where: { id: args.itemId as string },
+            data: { content: args.newContent as string },
+          });
+        }
+        await pusher.trigger(
+          `private-list-${listId}`,
+          "item-updated",
+          {
+            itemId: args.itemId,
+            itemType: args.itemType,
+            content: args.newContent,
+          },
+          { socket_id: socketId ?? undefined }
+        );
+        break;
+      }
+      case "moveTask": {
+        if (args.itemType === "task") {
+          await prisma.task.update({
+            where: { id: args.itemId as string },
+            data: { order: args.newOrder as number },
+          });
+        } else {
+          await prisma.subTask.update({
+            where: { id: args.itemId as string },
+            data: { order: args.newOrder as number },
+          });
+        }
+        await pusher.trigger(
+          `private-list-${listId}`,
+          "list-reordered",
+          {},
+          { socket_id: socketId ?? undefined }
+        );
+        break;
+      }
       default:
         return NextResponse.json(
           { message: `Unknown function call: ${name}` },
