@@ -39,10 +39,22 @@ export async function GET(
         },
         tasks: {
           orderBy: { order: "asc" },
-          include: {
+          select: {
+            id: true,
+            content: true,
+            completed: true,
+            order: true,
+            createdAt: true,
+            updatedAt: true,
             subTasks: {
               orderBy: { order: "asc" },
-              include: {
+              select: {
+                id: true,
+                content: true,
+                completed: true,
+                order: true,
+                createdAt: true,
+                updatedAt: true,
                 _count: {
                   select: { comments: true },
                 },

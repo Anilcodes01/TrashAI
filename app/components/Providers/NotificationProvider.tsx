@@ -28,10 +28,9 @@ interface NewInvitationPayload {
   listTitle: string;
 }
 
-// --- NEW: Helper function to play the sound ---
 const playNotificationSound = () => {
   try {
-    const audio = new Audio('/notification1.mp3'); // Path is relative to the public folder
+    const audio = new Audio('/notification2.mp3'); 
     audio.play();
   } catch (error) {
     console.error("Could not play notification sound:", error);

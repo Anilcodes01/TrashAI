@@ -49,4 +49,6 @@ export interface TodoList {
   owner: User;
   collaborators: Collaborator[];
   tasks: Task[];
+  createdAt: string;
+  updatedAt: string
 }
