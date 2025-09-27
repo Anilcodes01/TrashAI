@@ -14,6 +14,7 @@ import { CommentPopover } from "./CommentPopover";
 import { AICommandModal } from "./AI/AiCommandModal";
 import Image from "next/image";
 import { ChatModalWindow } from "./chatModalWindow/ChatModalWindow";
+import { AnimatePresence } from 'framer-motion';
 
 class FetchError extends Error {
   status: number;
@@ -711,14 +712,18 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
             onExecute={handleAICommand}
           />
         </div>
-        <ChatModalWindow
+         <AnimatePresence>
+        {isChatModalOpen && (
+          <ChatModalWindow
             isOpen={isChatModalOpen}
             onClose={() => setIsChatModalOpen(false)}
             listId={list.id}
             currentUser={session.user as User}
             unreadSenders={unreadSenders}
             onMarkAsRead={handleMarkAsRead}
-        />
+          />
+        )}
+      </AnimatePresence>
       </div>
     </div>
   );
