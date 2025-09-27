@@ -15,6 +15,8 @@ import { AICommandModal } from "./AI/AiCommandModal";
 import Image from "next/image";
 import { ChatModalWindow } from "./chatModalWindow/ChatModalWindow";
 import { AnimatePresence } from 'framer-motion';
+import { TbMessagePlus } from "react-icons/tb";
+
 
 class FetchError extends Error {
   status: number;
@@ -691,7 +693,7 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
           className="fixed bottom-16 right-13 cursor-pointer flex items-start justify-start h-16 w-16"
           title="Open Chat"
         >
-          <MessageSquarePlus size={36} />
+          <TbMessagePlus size={36} />
           {unreadSenders.size > 0 && (
             <span className="absolute top-0 right-6 flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
