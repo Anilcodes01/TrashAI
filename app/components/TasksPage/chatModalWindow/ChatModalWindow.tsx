@@ -161,7 +161,7 @@ export const ChatModalWindow: FC<ChatModalWindowProps> = ({ isOpen, onClose, lis
 
   return (
     <motion.div variants={animationVariants} initial="hidden" animate="visible" exit="hidden" className="fixed bottom-5 right-5 z-50 w-full max-w-md" data-active-chat-id={selectedCollaborator?.id}>
-      <div className="flex h-[65vh] flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800/50 shadow-2xl backdrop-blur-xl">
+      <div className="flex h-[65vh] flex-col overflow-hidden rounded-xl border border-zinc-700 bg-zinc-800 shadow-2xl backdrop-blur-xl">
         <div className="flex items-center gap-2 border-b border-zinc-700 p-3 pr-2 shrink-0">
           {selectedCollaborator ? (
             <button onClick={handleGoBackToList} className="p-1.5 text-zinc-400 hover:bg-zinc-700 rounded-md">

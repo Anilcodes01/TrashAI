@@ -56,7 +56,7 @@ export default function Signup() {
 
   return (
     <div className="bg-white min-h-screen  flex justify-center items-center">
-      <Toaster position="top-right" reverseOrder={false} />
+      {/* <Toaster position="top-right" reverseOrder={false} /> */}
       <div className="bg-white h-auto text-black lg:w-1/3  rounded-xl shadow-2xl p-10">
         <div className="text-4xl  text-left">Get Started Now</div>
         <div className="text-sm mt-1">

@@ -133,10 +133,7 @@ export default function Sidebar() {
         isOpen ? "w-64" : "w-20"
       }`}
     >
-      <Toaster
-        position="bottom-right"
-        toastOptions={{ style: { background: "#333", color: "#fff" } }}
-      />
+    
       <button
         onClick={toggleSidebar}
         className="absolute -right-3 top-9 z-20 p-1 bg-zinc-700 text-white rounded-full hover:bg-zinc-600 focus:outline-none"
