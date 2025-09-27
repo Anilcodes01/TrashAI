@@ -665,7 +665,7 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
           anchorEl={commentPopover.anchorEl}
           onClose={handleCloseComments}
         />
-        <div className="fixed bottom-8 w-full">
+        <div className="fixed bottom-2 w-full">
            <AICommandModal
         isOpen={isAIModalOpen}
         onClose={() => setIsAIModalOpen(false)}

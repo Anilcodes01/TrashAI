@@ -39,7 +39,7 @@ export const TaskList: FC<TaskListProps> = ({
   return (
     <>
       {tasks.map((task) => (
-        <div key={task.id} className="p-4 max-w-4xl w-full rounded-lg ">
+        <div key={task.id} className="px-4 py-2 max-w-4xl w-full rounded-lg ">
           
           <div className="flex justify-between items-center group">
             <TodoItem
@@ -65,7 +65,7 @@ export const TaskList: FC<TaskListProps> = ({
             </button>
           </div>
           
-          <div className="mt-3 pl-8 space-y-2">
+          <div className="mt-3 pl-8 space-y-1">
             {task.subTasks?.map((subTask) => (
               <TodoItem
                 key={subTask.id}
