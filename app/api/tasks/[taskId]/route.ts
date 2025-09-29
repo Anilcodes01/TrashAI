@@ -85,3 +85,48 @@ export async function GET(
     );
   }
 }
+
+
+
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ taskId: string }> }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const listId =(await params).taskId;
+    const { title } = await request.json();
+
+    const list = await prisma.todoList.findFirst({
+      where: {
+        id: listId,
+        ownerId: session.user.id,
+      },
+    });
+
+    if (!list) {
+      return NextResponse.json({ error: "List not found or you do not have permission" }, { status: 404 });
+    }
+    
+    // Validate input
+    if (typeof title !== 'string' || title.trim().length === 0) {
+      return NextResponse.json({ error: "Title cannot be empty" }, { status: 400 });
+    }
+
+    const updatedList = await prisma.todoList.update({
+      where: { id: listId },
+      data: { title: title.trim() },
+    });
+
+    return NextResponse.json(updatedList);
+
+  } catch (error) {
+    console.error("Failed to update list title:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}

@@ -189,6 +189,24 @@ export default function Sidebar() {
             </div>
           )}
         </Link>
+        <Link
+          href="/"
+          className="relative flex items-center text-sm gap-3 hover:bg-zinc-800 py-2 px-2 cursor-pointer rounded-lg"
+        >
+          <Inbox size={18} />
+          {isOpen && <span className="font-medium">Home</span>}
+          {invitationCount > 0 && (
+            <div
+              className={`absolute right-2 top-1/2 -translate-y-1/2 transition-all duration-300 ${
+                isOpen ? "static ml-auto" : ""
+              }`}
+            >
+              <span className="flex h-3 w-3 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold">
+                {invitationCount}
+              </span>
+            </div>
+          )}
+        </Link>
       </div>
 
       <div className="flex-grow mt-6 overflow-y-auto">

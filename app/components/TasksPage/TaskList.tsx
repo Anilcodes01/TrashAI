@@ -1,6 +1,6 @@
 "use client";
 
-import { FC, KeyboardEvent } from "react";
+import { FC, KeyboardEvent, useState } from "react";
 import { Task, SubTask } from "@/app/types";
 import { NewItemInput } from "./NewItemInput";
 import { TodoItem } from "./TodoItem";
@@ -11,31 +11,52 @@ interface TaskListProps {
   editingItemId: string | null;
   editText: string;
   handleToggle: (itemId: string, isSubTask: boolean) => void;
-  startEditing: (item: Task | SubTask) => void;
+   startEditing: (item: Task | SubTask | null) => void;
   handleSaveEdit: () => void;
   handleKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   setEditText: (value: string) => void;
- handleDelete: (itemId: string, itemType: 'task' | 'subtask') => void; 
-  inputRef: React.RefObject<HTMLInputElement | null>; 
-  addingItem: { type: "task" | "subtask"; parentId?: string } | null;
-  onStartAddTask: () => void;
-  onStartAddSubTask: (parentId: string) => void;
-  onSaveNewItem: (content: string) => void;
-  onCancelAdd: () => void;
-   onOpenComments: (item: Task | SubTask, itemType: "task" | "subtask", event: React.MouseEvent) => void;
+  handleDelete: (itemId: string, itemType: "task" | "subtask") => void;
+  onSaveNewItem: (content: string, type: "task" | "subtask", parentId?: string) => void;
+  onOpenComments: (item: Task | SubTask, itemType: "task" | "subtask", event: React.MouseEvent) => void;
 }
+
 
 export const TaskList: FC<TaskListProps> = ({ 
   tasks, 
-  addingItem, 
-  onStartAddTask, 
-  onStartAddSubTask, 
   onSaveNewItem, 
-  onCancelAdd, 
   handleDelete,
   onOpenComments,
   ...props 
 }) => {
+
+  const [addingItem, setAddingItem] = useState<{
+    type: "task" | "subtask";
+    parentId?: string;
+  } | null>(null);
+
+
+  const handleStartAddTask = () => {
+    props.startEditing(null); 
+    setAddingItem({ type: "task" });
+  };
+
+  const handleStartAddSubTask = (parentId: string) => {
+    props.startEditing(null);
+    setAddingItem({ type: "subtask", parentId });
+  };
+
+  const handleCancelAdd = () => {
+    setAddingItem(null);
+  };
+
+  const handleSave = (content: string) => {
+    if (!addingItem) return;
+    // Call the original save function passed from the parent
+    onSaveNewItem(content, addingItem.type, addingItem.parentId);
+    setAddingItem(null); // Reset the state after saving
+  };
+
+
   return (
     <>
       {tasks.map((task) => (
@@ -53,11 +74,10 @@ export const TaskList: FC<TaskListProps> = ({
               onKeyDown={props.handleKeyDown}
               onTextChange={props.setEditText}
               onDelete={() => handleDelete(task.id, 'task')}
-              inputRef={props.inputRef as React.RefObject<HTMLInputElement>}
               onOpenComments={(event) => onOpenComments(task, 'task', event)}
             />
             <button
-                onClick={() => onStartAddSubTask(task.id)}
+                 onClick={() => handleStartAddSubTask(task.id)}
                 className="opacity-0 cursor-pointer group-hover:opacity-100 transition-opacity ml-4" 
                 title="Add sub-task"
             >
@@ -80,16 +100,15 @@ export const TaskList: FC<TaskListProps> = ({
                 onKeyDown={props.handleKeyDown}
                 onTextChange={props.setEditText}
                  onDelete={() => handleDelete(subTask.id, 'subtask')} 
-                inputRef={props.inputRef as React.RefObject<HTMLInputElement>}
               />
             ))}
             
             {addingItem?.type === 'subtask' && addingItem.parentId === task.id && (
-                <NewItemInput 
+               <NewItemInput 
                     isSubTask={true}
                     placeholder="New sub-task..."
-                    onSave={onSaveNewItem}
-                    onCancel={onCancelAdd}
+                    onSave={handleSave}
+                    onCancel={handleCancelAdd}
                 />
             )}
           </div>
@@ -98,11 +117,11 @@ export const TaskList: FC<TaskListProps> = ({
 
       {addingItem?.type === 'task' && (
          <div className="p-4 max-w-4xl w-full">
-            <NewItemInput 
+           <NewItemInput 
                 isSubTask={false}
                 placeholder="New task..."
-                onSave={onSaveNewItem}
-                onCancel={onCancelAdd}
+                onSave={handleSave}
+                onCancel={handleCancelAdd}
             />
          </div>
       )}
@@ -110,7 +129,7 @@ export const TaskList: FC<TaskListProps> = ({
       {!addingItem && (
         <div className="p-4 max-w-4xl w-full">
             <button
-              onClick={onStartAddTask}
+              onClick={handleStartAddTask}
               className="flex items-center cursor-pointer gap-2 text-gray-500 hover:text-gray-800 transition-colors w-full"
             >
               <PlusCircle size={20} />

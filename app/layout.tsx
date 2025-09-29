@@ -4,6 +4,7 @@ import "./globals.css";
 import Appbar from "./components/ui/Appbar"; // Your Appbar component
 import Providers from "./providers";
 import { ReactNode } from "react";
+import Sidebar from "./components/main/Sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,6 +35,7 @@ export default function RootLayout({
           {/* <Appbar /> */}
     
           <main className="pt- h-screen flex flex-col">
+            {/* <Sidebar /> */}
             {children}
           </main>
         </Providers>

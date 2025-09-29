@@ -16,6 +16,9 @@ import Image from "next/image";
 import { ChatModalWindow } from "./chatModalWindow/ChatModalWindow";
 import { AnimatePresence } from 'framer-motion';
 import { TbMessagePlus } from "react-icons/tb";
+import { useSearchParams } from "next/navigation";
+import axios from "axios";
+import TextareaAutosize from 'react-textarea-autosize';
 
 
 class FetchError extends Error {
@@ -67,12 +70,8 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
   const [list, setList] = useState<TodoList | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
   const [unreadSenders, setUnreadSenders] = useState<Set<string>>(new Set());
-  const [addingItem, setAddingItem] = useState<{
-    type: "task" | "subtask";
-    parentId?: string;
-  } | null>(null);
+ 
   const [commentPopover, setCommentPopover] = useState<{
     isOpen: boolean;
     item:
@@ -80,6 +79,10 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
       | null;
     anchorEl: HTMLElement | null;
   }>({ isOpen: false, item: null, anchorEl: null });
+   const [isTitleEditing, setIsTitleEditing] = useState(false);
+  const [listTitle, setListTitle] = useState("");
+  const titleInputRef = useRef<HTMLTextAreaElement>(null);
+  const searchParams = useSearchParams();
 
   const handleOpenComments = (
     item: Task | SubTask,
@@ -146,12 +149,60 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
   }, [list]);
 
   useEffect(() => {
-    if (initialTodoList) setList(initialTodoList);
-  }, [initialTodoList]);
+    if (initialTodoList) {
+      setList(initialTodoList);
+      setListTitle(initialTodoList.title); // Initialize title state
+
+      // Check if this is a new list from the URL
+      const isNew = searchParams.get('new') === 'true';
+      if (isNew) {
+        setIsTitleEditing(true);
+      }
+    }
+  }, [initialTodoList, searchParams]);
+
 
   useEffect(() => {
-    if (editingItemId && inputRef.current) inputRef.current.focus();
-  }, [editingItemId]);
+    if (isTitleEditing && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select(); // Select the text for easy replacement
+    }
+  }, [isTitleEditing]);
+
+   const handleSaveTitle = async () => {
+    if (!list || listTitle.trim() === list.title) {
+      setIsTitleEditing(false);
+      return;
+    }
+
+    try {
+      // Optimistically update UI
+      const updatedList = { ...list, title: listTitle.trim() };
+      setList(updatedList);
+      setIsTitleEditing(false);
+
+      // Make API call to update the title in the database
+      await axios.patch(`/api/tasks/${list.id}`, { title: listTitle.trim() });
+      mutate(`/api/tasks/${taskId}`); // Revalidate SWR cache
+    } catch (error) {
+      console.error("Failed to save title:", error);
+      // Revert on failure
+      setListTitle(list.title);
+      alert("Could not save the title. Please try again.");
+    }
+  };
+
+   const handleTitleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault(); // Prevent new line
+      handleSaveTitle();
+      // Optional: focus the "add task" input next
+    }
+    if (e.key === 'Escape') {
+      setListTitle(list?.title || "");
+      setIsTitleEditing(false);
+    }
+  };
 
   useEffect(() => {
     if (!taskId) return;
@@ -470,8 +521,11 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
     }
   };
 
-  const startEditing = (item: Task | SubTask) => {
-    setAddingItem(null);
+   const startEditing = (item: Task | SubTask | null) => {
+    if (!item) {
+      setEditingItemId(null);
+      return;
+    }
     setEditingItemId(item.id);
     setEditText(item.content);
   };
@@ -549,26 +603,13 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
     else if (e.key === "Escape") setEditingItemId(null);
   };
 
-  const handleStartAddTask = () => {
-    setEditingItemId(null);
-    setAddingItem({ type: "task" });
-  };
+ 
 
-  const handleStartAddSubTask = (parentId: string) => {
-    setEditingItemId(null);
-    setAddingItem({ type: "subtask", parentId });
-  };
-
-  const handleCancelAdd = () => {
-    setAddingItem(null);
-  };
-
-  const handleSaveNewItem = async (content: string) => {
-    if (!list || !addingItem) return;
-    const { type, parentId } = addingItem;
+  const handleSaveNewItem = async (content: string, type: 'task' | 'subtask', parentId?: string) => {
+    if (!list || !content) return; // Already trimmed in NewItemInput
+    
     const tempId = `temp-${Date.now()}`;
     const originalList = JSON.parse(JSON.stringify(list));
-    setAddingItem(null);
 
     let optimisticList: TodoList;
     if (type === "task") {
@@ -606,15 +647,12 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
       const socketId = getPusherClient().connection.socket_id;
       const res = await fetch(`/api/tasks/${list.id}/append`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-socket-id": socketId,
-        },
+        headers: { "Content-Type": "application/json", "x-socket-id": socketId },
         body: JSON.stringify({ content, type, parentId }),
       });
 
       if (!res.ok) throw new Error("Failed to save item on the server.");
-      await mutate(`/api/tasks/${taskId}`);
+      // await mutate(`/api/tasks/${taskId}`);
     } catch (error) {
       console.error("Failed to save new item:", error);
       setList(originalList);
@@ -657,11 +695,29 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
 
       <div className="w-full relative flex flex-col items-center p-8 h-full justify-center space-y-4">
         <div className="w-full max-w-4xl">
-          <h1 className="text-3xl w-full mb-6">{list.title}</h1>
-          <div className="mb-8">
-            <ProgressBar progress={progressPercentage} />
-          </div>
-        </div>
+    {isTitleEditing ? (
+      <TextareaAutosize
+      
+  ref={titleInputRef}
+  value={listTitle}
+  onChange={(e) => setListTitle(e.target.value)}
+  onBlur={handleSaveTitle}
+  onKeyDown={handleTitleKeyDown}
+  className="text-3xl font-bold bg-transparent w-full focus:outline-none  rounded-md p-1 -m-1 resize-none"
+  minRows={1} // Start with one row
+/>
+    ) : (
+      <h1
+        onClick={() => setIsTitleEditing(true)}
+        className="text-3xl font-bold w-full mb-6 p-1 -m-1 cursor-pointer rounded-md hover:bg-zinc-800"
+      >
+        {list.title}
+      </h1>
+    )}
+    <div className="mb-8 mt-6"> {/* Adjusted margin */}
+      <ProgressBar progress={progressPercentage} />
+    </div>
+  </div>
         <TaskList
           tasks={list.tasks}
           editingItemId={editingItemId}
@@ -671,12 +727,8 @@ export default function TodoListDisplay({ taskId }: { taskId: string }) {
           handleSaveEdit={handleSaveEdit}
           handleKeyDown={handleKeyDown}
           setEditText={setEditText}
-          inputRef={inputRef}
-          addingItem={addingItem}
-          onStartAddTask={handleStartAddTask}
-          onStartAddSubTask={handleStartAddSubTask}
-          onSaveNewItem={handleSaveNewItem}
-          onCancelAdd={handleCancelAdd}
+          // --- PASS THE SIMPLIFIED PROPS ---
+          onSaveNewItem={handleSaveNewItem} // This is the modified function
           handleDelete={handleDelete}
           onOpenComments={handleOpenComments}
         />

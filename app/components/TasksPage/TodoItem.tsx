@@ -1,4 +1,4 @@
-import { FC, KeyboardEvent, RefObject } from "react";
+import { FC, KeyboardEvent, RefObject, useEffect, useRef } from "react";
 import { Task, SubTask } from "@/app/types";
 import { Check, Square, Trash2, MessageSquare, MessageSquarePlus } from "lucide-react";
 
@@ -12,7 +12,6 @@ interface TodoItemProps {
   onSaveEdit: () => void;
   onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   onTextChange: (value: string) => void;
-  inputRef: RefObject<HTMLInputElement>;
   onDelete: () => void;
    onOpenComments: (event: React.MouseEvent) => void;
 }
@@ -27,15 +26,22 @@ export const TodoItem: FC<TodoItemProps> = ({
   onSaveEdit,
   onKeyDown,
   onTextChange,
-  inputRef,
   onDelete,
   onOpenComments,
 }) => {
+    const localInputRef = useRef<HTMLInputElement>(null);
   const CheckboxIcon = item.completed ? Check : Square;
   const iconSize = isSubTask ? 16 : 24;
   const textSize = isSubTask ? "text-sm" : "text-base font-bold";
   const iconColor = item.completed ? "text-green-500" : "text-gray-400";
   const commentCount = item._count?.comments || 0;
+
+   useEffect(() => {
+    if (isEditing) {
+      localInputRef.current?.focus();
+      localInputRef.current?.select();
+    }
+  }, [isEditing]);
 
   return (
     <div className="flex items-center gap-3 flex-grow group">
@@ -46,7 +52,7 @@ export const TodoItem: FC<TodoItemProps> = ({
       <div className="flex-grow">
         {isEditing ? (
           <input
-            ref={inputRef}
+              ref={localInputRef}
             type="text"
             value={editText}
             onChange={(e) => onTextChange(e.target.value)}
